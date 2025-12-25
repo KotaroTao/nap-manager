@@ -205,6 +205,20 @@ model EmailTemplate {
 }
 
 // ==========================================
+// パスワードリセットトークンテーブル
+// ==========================================
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("password_reset_tokens")
+}
+
+// ==========================================
 // Enum定義
 // ==========================================
 

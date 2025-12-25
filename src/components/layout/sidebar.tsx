@@ -9,6 +9,7 @@ import {
   Globe,
   Wrench,
   FileEdit,
+  Database,
   Settings,
   LogOut,
 } from "lucide-react"
@@ -39,6 +40,11 @@ const navigation = [
     name: "修正依頼",
     href: "/requests",
     icon: FileEdit,
+  },
+  {
+    name: "データ管理",
+    href: "/data",
+    icon: Database,
   },
   {
     name: "設定",

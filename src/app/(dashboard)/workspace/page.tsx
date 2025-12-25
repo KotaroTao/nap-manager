@@ -21,6 +21,7 @@ import {
   Filter,
   Loader2,
   RefreshCw,
+  Eye,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -55,6 +56,7 @@ import { toast } from "sonner"
 import { useClinics, useClinic } from "@/hooks/use-clinics"
 import { useClinicSites, useUpdateClinicSiteStatus } from "@/hooks/use-clinic-sites"
 import { useCreateCorrectionRequest } from "@/hooks/use-correction-requests"
+import { NapDiff } from "@/components/workspace/nap-diff"
 import type { ClinicSiteStatus } from "@/types"
 
 const statusConfig: Record<
@@ -108,6 +110,8 @@ export default function WorkspacePage() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false)
   const [requestNotes, setRequestNotes] = useState("")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [diffDialogSite, setDiffDialogSite] = useState<any | null>(null)
 
   // 医院一覧を取得
   const { data: clinicsData, isLoading: isLoadingClinics } = useClinics({ isActive: true, limit: 100 })
@@ -525,6 +529,17 @@ export default function WorkspacePage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          {/* 差分表示ボタン */}
+                          {(site.detectedName || site.detectedAddress || site.detectedPhone) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDiffDialogSite(site)}
+                              title="差分を表示"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                           {site.pageUrl && (
                             <Button
                               variant="ghost"
@@ -617,6 +632,73 @@ export default function WorkspacePage() {
                 "作成する"
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* NAP差分表示ダイアログ */}
+      <Dialog open={diffDialogSite !== null} onOpenChange={(open) => !open && setDiffDialogSite(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              NAP情報の比較
+            </DialogTitle>
+          </DialogHeader>
+          {diffDialogSite && selectedClinic && (
+            <div className="space-y-4 py-2">
+              {/* サイト情報 */}
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="font-medium">{diffDialogSite.site.name}</p>
+                  {diffDialogSite.pageUrl && (
+                    <a
+                      href={diffDialogSite.pageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      掲載ページを開く
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+                <Badge className={statusConfig[diffDialogSite.status as ClinicSiteStatus].color}>
+                  {statusConfig[diffDialogSite.status as ClinicSiteStatus].icon}
+                  <span className="ml-1">{statusConfig[diffDialogSite.status as ClinicSiteStatus].label}</span>
+                </Badge>
+              </div>
+
+              {/* 差分表示 */}
+              <NapDiff
+                correct={{
+                  name: selectedClinic.name,
+                  address: fullAddress,
+                  phone: selectedClinic.phone,
+                }}
+                detected={{
+                  name: diffDialogSite.detectedName,
+                  address: diffDialogSite.detectedAddress,
+                  phone: diffDialogSite.detectedPhone,
+                }}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDiffDialogSite(null)}>
+              閉じる
+            </Button>
+            {diffDialogSite && diffDialogSite.status !== "matched" && (
+              <Button
+                onClick={() => {
+                  copyToClipboard(generateCorrectionTemplate(diffDialogSite), `template-dialog-${diffDialogSite.id}`)
+                  toast.success("修正依頼文をコピーしました")
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                修正依頼文をコピー
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
