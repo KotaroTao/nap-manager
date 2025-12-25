@@ -9,6 +9,9 @@ WORKDIR /app
 # package.jsonとpackage-lock.jsonをコピー
 COPY package.json package-lock.json* ./
 
+# Prismaスキーマをコピー（postinstallでprisma generateが必要）
+COPY prisma ./prisma
+
 # 依存関係をインストール
 RUN npm ci
 
