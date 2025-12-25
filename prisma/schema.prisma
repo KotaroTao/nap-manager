@@ -1,0 +1,290 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 管理者テーブル
+// ==========================================
+model Admin {
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  passwordHash         String    @map("password_hash")
+  name                 String
+  failedLoginAttempts  Int       @default(0) @map("failed_login_attempts")
+  lockedUntil          DateTime? @map("locked_until")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  notificationSettings NotificationSettings?
+
+  @@map("admins")
+}
+
+// ==========================================
+// 医院テーブル
+// ==========================================
+model Clinic {
+  id            String   @id @default(uuid())
+  name          String   // 正式医院名
+  nameKana      String?  @map("name_kana") // 医院名かな
+  postalCode    String   @map("postal_code") // 郵便番号
+  prefecture    String   // 都道府県
+  city          String   // 市区町村
+  address       String   // 番地・建物名
+  phone         String   // 正式電話番号
+  fax           String?  // FAX番号
+  email         String?  // メールアドレス
+  website       String?  // 公式サイトURL
+  businessHours String?  @map("business_hours") // 営業時間
+  closedDays    String?  @map("closed_days") // 休診日
+  notes         String?  // 備考
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  clinicNaps   ClinicNap[]
+  clinicSites  ClinicSite[]
+
+  @@map("clinics")
+}
+
+// ==========================================
+// 旧NAP情報テーブル
+// ==========================================
+model ClinicNap {
+  id         String   @id @default(uuid())
+  clinicId   String   @map("clinic_id")
+  oldName    String?  @map("old_name") // 旧医院名
+  oldAddress String?  @map("old_address") // 旧住所
+  oldPhone   String?  @map("old_phone") // 旧電話番号
+  notes      String?  // 備考
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // リレーション
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@map("clinic_naps")
+}
+
+// ==========================================
+// サイトテーブル
+// ==========================================
+model Site {
+  id          String       @id @default(uuid())
+  name        String       // サイト名
+  url         String       // サイトURL
+  registerUrl String?      @map("register_url") // 新規登録URL
+  editUrl     String?      @map("edit_url") // 修正依頼URL
+  type1       SiteType1    @map("type_1") // 有料/無料/承認制
+  type2       SiteType2    @map("type_2") // SNS/ポータル/求人/その他
+  editMethod  EditMethod   @map("edit_method") // 変更依頼方法
+  importance  Importance   // 重要度
+  seoImpact   SeoImpact    @map("seo_impact") // SEO影響度
+  template    String?      // カスタム修正依頼テンプレート
+  comment     String?      // コメント
+  siteType    SiteCategory @default(master) @map("site_type") // サイト種別
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // リレーション
+  clinicSites ClinicSite[]
+
+  @@map("sites")
+}
+
+// ==========================================
+// 医院別サイト紐付けテーブル
+// ==========================================
+model ClinicSite {
+  id              String           @id @default(uuid())
+  clinicId        String           @map("clinic_id")
+  siteId          String           @map("site_id")
+  pageUrl         String?          @map("page_url") // 掲載ページURL
+  status          ClinicSiteStatus @default(unchecked)
+  priority        Priority         @default(medium)
+  priorityScore   Int              @default(0) @map("priority_score") // 優先度スコア（自動計算）
+  detectedName    String?          @map("detected_name") // 検出された医院名
+  detectedAddress String?          @map("detected_address") // 検出された住所
+  detectedPhone   String?          @map("detected_phone") // 検出された電話番号
+  lastCheckedAt   DateTime?        @map("last_checked_at") // 最終チェック日時
+  notes           String?          // 備考
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  // リレーション
+  clinic             Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  site               Site                @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  correctionRequests CorrectionRequest[]
+
+  @@unique([clinicId, siteId])
+  @@map("clinic_sites")
+}
+
+// ==========================================
+// 修正依頼テーブル
+// ==========================================
+model CorrectionRequest {
+  id            String                   @id @default(uuid())
+  clinicSiteId  String                   @map("clinic_site_id")
+  status        CorrectionRequestStatus  @default(pending)
+  requestMethod RequestMethod?           @map("request_method") // 依頼方法
+  templateText  String?                  @map("template_text") // 依頼テンプレート文
+  requestedAt   DateTime?                @map("requested_at") // 依頼日時
+  reminderAt    DateTime?                @map("reminder_at") // 次回リマインド日時
+  notes         String?                  // 備考
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+
+  // リレーション
+  clinicSite       ClinicSite         @relation(fields: [clinicSiteId], references: [id], onDelete: Cascade)
+  requestHistories RequestHistory[]
+
+  @@map("correction_requests")
+}
+
+// ==========================================
+// 依頼履歴テーブル
+// ==========================================
+model RequestHistory {
+  id                    String   @id @default(uuid())
+  correctionRequestId   String   @map("correction_request_id")
+  action                String   // アクション内容
+  notes                 String?  // メモ
+  attachmentUrl         String?  @map("attachment_url") // 添付ファイルURL
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  // リレーション
+  correctionRequest CorrectionRequest @relation(fields: [correctionRequestId], references: [id], onDelete: Cascade)
+
+  @@map("request_histories")
+}
+
+// ==========================================
+// 通知設定テーブル
+// ==========================================
+model NotificationSettings {
+  id                 String   @id @default(uuid())
+  adminId            String   @unique @map("admin_id")
+  newMismatch        Boolean  @default(true) @map("new_mismatch") // 新規不一致通知
+  weeklySummary      Boolean  @default(true) @map("weekly_summary") // 週次サマリー
+  followUpReminder   Boolean  @default(true) @map("follow_up_reminder") // フォローアップリマインド
+  accessError        Boolean  @default(false) @map("access_error") // アクセス不可通知
+  reminderDays       Int      @default(7) @map("reminder_days") // リマインド日数
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+// ==========================================
+// メールテンプレートテーブル
+// ==========================================
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  name      String   // テンプレート名
+  subject   String   // 件名テンプレート
+  body      String   // 本文テンプレート
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("email_templates")
+}
+
+// ==========================================
+// Enum定義
+// ==========================================
+
+// サイト種別① (有料/無料/承認制)
+enum SiteType1 {
+  paid     // 有料
+  free     // 無料
+  approval // 承認制
+}
+
+// サイト種別② (SNS/ポータル/求人/その他)
+enum SiteType2 {
+  sns    // SNS
+  portal // ポータルサイト
+  job    // 求人サイト
+  other  // その他
+}
+
+// 変更依頼方法
+enum EditMethod {
+  form  // フォーム
+  email // メール
+  phone // 電話
+  other // その他
+}
+
+// 重要度
+enum Importance {
+  high   // 高
+  medium // 中
+  low    // 低
+}
+
+// SEO影響度
+enum SeoImpact {
+  large  // 大
+  medium // 中
+  small  // 小
+  none   // なし
+}
+
+// サイトカテゴリ（マスタ/自動/手動）
+enum SiteCategory {
+  master // マスタサイト
+  auto   // 自動追加
+  manual // 手動追加
+}
+
+// 医院別サイトステータス
+enum ClinicSiteStatus {
+  matched     // 一致
+  needsReview // 要確認
+  mismatched  // 不一致
+  unregistered // 未登録
+  unchecked   // 未チェック
+  inaccessible // アクセス不可
+}
+
+// 優先度
+enum Priority {
+  urgent // 緊急
+  high   // 高
+  medium // 中
+  low    // 低
+}
+
+// 修正依頼ステータス
+enum CorrectionRequestStatus {
+  pending     // 未対応
+  requested   // 依頼済み
+  inProgress  // 対応中
+  completed   // 完了
+  impossible  // 対応不可
+  onHold      // 保留
+}
+
+// 依頼方法
+enum RequestMethod {
+  form  // フォーム
+  email // メール
+  phone // 電話
+  other // その他
+}
