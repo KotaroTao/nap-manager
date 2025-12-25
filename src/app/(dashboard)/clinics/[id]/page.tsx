@@ -8,7 +8,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
   Copy,
@@ -19,6 +19,8 @@ import {
   AlertCircle,
   Clock,
   Ban,
+  Loader2,
+  Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,77 +34,21 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { toast } from "sonner"
-
-// 仮のデータ
-const clinic = {
-  id: "1",
-  name: "山田歯科クリニック",
-  nameKana: "やまだしかくりにっく",
-  postalCode: "150-0001",
-  prefecture: "東京都",
-  city: "渋谷区",
-  address: "神宮前1-2-3 ABCビル5F",
-  phone: "03-1234-5678",
-  fax: "03-1234-5679",
-  email: "info@yamada-dental.jp",
-  website: "https://yamada-dental.jp",
-  businessHours: "平日 9:00-19:00、土曜 9:00-13:00",
-  closedDays: "日曜・祝日",
-  notes: "",
-  isActive: true,
-}
-
-const clinicSites = [
-  {
-    id: "1",
-    siteName: "Google ビジネスプロフィール",
-    status: "matched",
-    pageUrl: "https://maps.google.com/...",
-    lastCheckedAt: "2024-12-20",
-  },
-  {
-    id: "2",
-    siteName: "EPARK歯科",
-    status: "mismatched",
-    pageUrl: "https://epark.jp/...",
-    lastCheckedAt: "2024-12-18",
-  },
-  {
-    id: "3",
-    siteName: "Yahoo!プレイス",
-    status: "needsReview",
-    pageUrl: "https://place.yahoo.co.jp/...",
-    lastCheckedAt: "2024-12-15",
-  },
-  {
-    id: "4",
-    siteName: "歯科タウン",
-    status: "unregistered",
-    pageUrl: null,
-    lastCheckedAt: null,
-  },
-  {
-    id: "5",
-    siteName: "Facebook",
-    status: "unchecked",
-    pageUrl: null,
-    lastCheckedAt: null,
-  },
-]
-
-const oldNaps = [
-  {
-    id: "1",
-    oldName: "山田歯科医院",
-    oldAddress: null,
-    oldPhone: null,
-    notes: "2020年に名称変更",
-  },
-]
+import { useClinic, useDeleteClinic } from "@/hooks/use-clinics"
+import type { ClinicSiteStatus } from "@/types"
 
 const statusConfig: Record<
-  string,
+  ClinicSiteStatus,
   { label: string; color: string; icon: React.ReactNode }
 > = {
   matched: {
@@ -139,9 +85,12 @@ const statusConfig: Record<
 
 export default function ClinicDetailPage() {
   const params = useParams()
+  const router = useRouter()
+  const clinicId = params.id as string
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
-  const fullAddress = `〒${clinic.postalCode} ${clinic.prefecture}${clinic.city}${clinic.address}`
+  const { data: clinic, isLoading, error } = useClinic(clinicId)
+  const deleteClinic = useDeleteClinic()
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -154,13 +103,54 @@ export default function ClinicDetailPage() {
     }
   }
 
+  const handleDelete = () => {
+    deleteClinic.mutate(clinicId, {
+      onSuccess: () => {
+        toast.success("医院を削除しました")
+        router.push("/clinics")
+      },
+      onError: (error) => {
+        toast.error(error.message || "削除に失敗しました")
+      },
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
+  if (error || !clinic) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-red-500">医院が見つかりません</p>
+        <Link href="/clinics">
+          <Button variant="outline">一覧に戻る</Button>
+        </Link>
+      </div>
+    )
+  }
+
+  const fullAddress = `〒${clinic.postalCode} ${clinic.prefecture}${clinic.city}${clinic.address}`
+
   const copyAllNap = () => {
     const text = `${clinic.name}\n${fullAddress}\n${clinic.phone}`
     copyToClipboard(text, "all")
   }
 
-  const matchedCount = clinicSites.filter((s) => s.status === "matched").length
-  const matchRate = Math.round((matchedCount / clinicSites.length) * 100)
+  const clinicSites = clinic.clinicSites || []
+  const clinicNaps = clinic.clinicNaps || []
+  const stats = clinic.stats || {
+    totalSites: 0,
+    matchedSites: 0,
+    mismatchedSites: 0,
+    needsReviewSites: 0,
+    uncheckedSites: 0,
+    matchRate: 0,
+  }
 
   return (
     <div className="space-y-6">
@@ -180,12 +170,42 @@ export default function ClinicDetailPage() {
             {clinic.isActive ? "有効" : "無効"}
           </Badge>
         </div>
-        <Link href={`/clinics/${params.id}/edit`}>
-          <Button variant="outline">
-            <Pencil className="h-4 w-4 mr-2" />
-            編集
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href={`/clinics/${clinicId}/edit`}>
+            <Button variant="outline">
+              <Pencil className="h-4 w-4 mr-2" />
+              編集
+            </Button>
+          </Link>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="text-red-600 hover:text-red-700">
+                <Trash2 className="h-4 w-4 mr-2" />
+                削除
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>医院を削除しますか？</DialogTitle>
+                <DialogDescription>
+                  この操作は取り消せません。医院「{clinic.name}」と関連するすべてのデータが削除されます。
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" type="button">
+                  キャンセル
+                </Button>
+                <Button
+                  onClick={handleDelete}
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={deleteClinic.isPending}
+                >
+                  {deleteClinic.isPending ? "削除中..." : "削除する"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* NAPコピーパレット */}
@@ -268,14 +288,14 @@ export default function ClinicDetailPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{clinicSites.length}</div>
+                <div className="text-2xl font-bold">{stats.totalSites}</div>
                 <p className="text-sm text-gray-500">登録サイト</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-green-600">
-                  {matchedCount}
+                  {stats.matchedSites}
                 </div>
                 <p className="text-sm text-gray-500">一致</p>
               </CardContent>
@@ -283,7 +303,7 @@ export default function ClinicDetailPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-red-600">
-                  {clinicSites.filter((s) => s.status === "mismatched").length}
+                  {stats.mismatchedSites}
                 </div>
                 <p className="text-sm text-gray-500">不一致</p>
               </CardContent>
@@ -291,7 +311,7 @@ export default function ClinicDetailPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-blue-600">
-                  {matchRate}%
+                  {stats.matchRate}%
                 </div>
                 <p className="text-sm text-gray-500">統一率</p>
               </CardContent>
@@ -311,44 +331,54 @@ export default function ClinicDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clinicSites.map((site) => (
-                    <TableRow key={site.id}>
-                      <TableCell className="font-medium">
-                        {site.siteName}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${statusConfig[site.status].color} gap-1`}
-                        >
-                          {statusConfig[site.status].icon}
-                          {statusConfig[site.status].label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {site.lastCheckedAt || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          {site.pageUrl && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                window.open(site.pageUrl!, "_blank")
-                              }
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Link href={`/workspace?clinic=${clinic.id}&site=${site.id}`}>
-                            <Button variant="outline" size="sm">
-                              編集
-                            </Button>
-                          </Link>
-                        </div>
+                  {clinicSites.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center text-gray-500">
+                        サイトが紐付けられていません
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    clinicSites.map((cs) => (
+                      <TableRow key={cs.id}>
+                        <TableCell className="font-medium">
+                          {cs.site?.name || "不明"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${statusConfig[cs.status].color} gap-1`}
+                          >
+                            {statusConfig[cs.status].icon}
+                            {statusConfig[cs.status].label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {cs.lastCheckedAt
+                            ? new Date(cs.lastCheckedAt).toLocaleDateString("ja-JP")
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {cs.pageUrl && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  window.open(cs.pageUrl!, "_blank")
+                                }
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Link href={`/workspace?clinic=${clinicId}&site=${cs.siteId}`}>
+                              <Button variant="outline" size="sm">
+                                編集
+                              </Button>
+                            </Link>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -435,7 +465,7 @@ export default function ClinicDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {oldNaps.length === 0 ? (
+              {clinicNaps.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">
                   旧NAP情報は登録されていません
                 </p>
@@ -450,7 +480,7 @@ export default function ClinicDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {oldNaps.map((nap) => (
+                    {clinicNaps.map((nap) => (
                       <TableRow key={nap.id}>
                         <TableCell>{nap.oldName || "-"}</TableCell>
                         <TableCell>{nap.oldAddress || "-"}</TableCell>
