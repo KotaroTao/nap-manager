@@ -9,7 +9,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
+import { useCreateClinic } from "@/hooks/use-clinics"
 
 // 都道府県リスト
 const PREFECTURES = [
@@ -31,43 +32,41 @@ const PREFECTURES = [
 
 export default function NewClinicPage() {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
   const [autoLinkMasterSites, setAutoLinkMasterSites] = useState(true)
+  const createClinic = useCreateClinic()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsLoading(true)
 
-    try {
-      const formData = new FormData(e.currentTarget)
-      const data = {
-        name: formData.get("name"),
-        nameKana: formData.get("nameKana"),
-        postalCode: formData.get("postalCode"),
-        prefecture: formData.get("prefecture"),
-        city: formData.get("city"),
-        address: formData.get("address"),
-        phone: formData.get("phone"),
-        fax: formData.get("fax"),
-        email: formData.get("email"),
-        website: formData.get("website"),
-        businessHours: formData.get("businessHours"),
-        closedDays: formData.get("closedDays"),
-        notes: formData.get("notes"),
-        autoLinkMasterSites,
-      }
-
-      // TODO: APIに送信
-      console.log("Submitting:", data)
-
-      toast.success("医院を登録しました")
-      router.push("/clinics")
-    } catch (error) {
-      console.error(error)
-      toast.error("登録に失敗しました")
-    } finally {
-      setIsLoading(false)
+    const formData = new FormData(e.currentTarget)
+    const data = {
+      name: formData.get("name") as string,
+      nameKana: (formData.get("nameKana") as string) || undefined,
+      postalCode: formData.get("postalCode") as string,
+      prefecture: formData.get("prefecture") as string,
+      city: formData.get("city") as string,
+      address: formData.get("address") as string,
+      phone: formData.get("phone") as string,
+      fax: (formData.get("fax") as string) || undefined,
+      email: (formData.get("email") as string) || undefined,
+      website: (formData.get("website") as string) || undefined,
+      businessHours: (formData.get("businessHours") as string) || undefined,
+      closedDays: (formData.get("closedDays") as string) || undefined,
+      notes: (formData.get("notes") as string) || undefined,
+      isActive: true,
+      autoLinkMasterSites,
     }
+
+    createClinic.mutate(data, {
+      onSuccess: () => {
+        toast.success("医院を登録しました")
+        router.push("/clinics")
+      },
+      onError: (error) => {
+        console.error(error)
+        toast.error(error.message || "登録に失敗しました")
+      },
+    })
   }
 
   return (
@@ -104,6 +103,7 @@ export default function NewClinicPage() {
                   name="name"
                   placeholder="例: 山田歯科クリニック"
                   required
+                  disabled={createClinic.isPending}
                 />
               </div>
               <div className="space-y-2">
@@ -112,6 +112,7 @@ export default function NewClinicPage() {
                   id="nameKana"
                   name="nameKana"
                   placeholder="例: やまだしかくりにっく"
+                  disabled={createClinic.isPending}
                 />
               </div>
             </div>
@@ -126,6 +127,7 @@ export default function NewClinicPage() {
                 type="tel"
                 placeholder="例: 03-1234-5678"
                 required
+                disabled={createClinic.isPending}
               />
             </div>
 
@@ -136,6 +138,7 @@ export default function NewClinicPage() {
                 name="fax"
                 type="tel"
                 placeholder="例: 03-1234-5679"
+                disabled={createClinic.isPending}
               />
             </div>
           </CardContent>
@@ -157,6 +160,7 @@ export default function NewClinicPage() {
                   name="postalCode"
                   placeholder="例: 150-0001"
                   required
+                  disabled={createClinic.isPending}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
@@ -166,8 +170,9 @@ export default function NewClinicPage() {
                 <select
                   id="prefecture"
                   name="prefecture"
-                  className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                   required
+                  disabled={createClinic.isPending}
                 >
                   <option value="">選択してください</option>
                   {PREFECTURES.map((pref) => (
@@ -188,6 +193,7 @@ export default function NewClinicPage() {
                 name="city"
                 placeholder="例: 渋谷区"
                 required
+                disabled={createClinic.isPending}
               />
             </div>
 
@@ -200,6 +206,7 @@ export default function NewClinicPage() {
                 name="address"
                 placeholder="例: 神宮前1-2-3 ABCビル5F"
                 required
+                disabled={createClinic.isPending}
               />
             </div>
           </CardContent>
@@ -218,6 +225,7 @@ export default function NewClinicPage() {
                 name="email"
                 type="email"
                 placeholder="例: info@yamada-dental.jp"
+                disabled={createClinic.isPending}
               />
             </div>
 
@@ -228,6 +236,7 @@ export default function NewClinicPage() {
                 name="website"
                 type="url"
                 placeholder="例: https://yamada-dental.jp"
+                disabled={createClinic.isPending}
               />
             </div>
 
@@ -238,6 +247,7 @@ export default function NewClinicPage() {
                 name="businessHours"
                 placeholder="例: 平日 9:00-19:00、土曜 9:00-13:00"
                 rows={2}
+                disabled={createClinic.isPending}
               />
             </div>
 
@@ -247,6 +257,7 @@ export default function NewClinicPage() {
                 id="closedDays"
                 name="closedDays"
                 placeholder="例: 日曜・祝日"
+                disabled={createClinic.isPending}
               />
             </div>
 
@@ -257,6 +268,7 @@ export default function NewClinicPage() {
                 name="notes"
                 placeholder="その他メモがあれば入力してください"
                 rows={3}
+                disabled={createClinic.isPending}
               />
             </div>
           </CardContent>
@@ -275,6 +287,7 @@ export default function NewClinicPage() {
                 onCheckedChange={(checked) =>
                   setAutoLinkMasterSites(checked as boolean)
                 }
+                disabled={createClinic.isPending}
               />
               <Label
                 htmlFor="autoLinkMasterSites"
@@ -289,12 +302,19 @@ export default function NewClinicPage() {
         {/* 送信ボタン */}
         <div className="flex justify-end gap-4">
           <Link href="/clinics">
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={createClinic.isPending}>
               キャンセル
             </Button>
           </Link>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "登録中..." : "医院を登録"}
+          <Button type="submit" disabled={createClinic.isPending}>
+            {createClinic.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                登録中...
+              </>
+            ) : (
+              "医院を登録"
+            )}
           </Button>
         </div>
       </form>

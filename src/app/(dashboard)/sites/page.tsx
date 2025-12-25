@@ -4,8 +4,11 @@
  * 登録されているサイト（ポータルサイト、SNS等）の一覧を表示します。
  */
 
+"use client"
+
+import { useState } from "react"
 import Link from "next/link"
-import { Plus, Search, Globe, ExternalLink } from "lucide-react"
+import { Plus, Search, Globe, ExternalLink, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -23,88 +26,32 @@ import {
   SITE_TYPE1_LABELS,
   SITE_TYPE2_LABELS,
   IMPORTANCE_LABELS,
-  SITE_CATEGORY_LABELS,
 } from "@/types"
-import type { SiteCategory, SiteType1, SiteType2, Importance } from "@/types/prisma"
+import type { SiteType1, SiteType2, Importance } from "@/types"
+import { useSites, type SiteWithStats } from "@/hooks/use-sites"
+import { useDebounce } from "@/hooks/use-debounce"
 
-// サイトの型定義
-interface SiteData {
-  id: string
-  name: string
-  url: string
-  type1: SiteType1
-  type2: SiteType2
-  importance: Importance
-  siteType: SiteCategory
-  isActive: boolean
-}
-
-// 仮のデータ
-const sites: SiteData[] = [
-  {
-    id: "1",
-    name: "Google ビジネスプロフィール",
-    url: "https://business.google.com",
-    type1: "free",
-    type2: "portal",
-    importance: "high",
-    siteType: "master",
-    isActive: true,
-  },
-  {
-    id: "2",
-    name: "EPARK歯科",
-    url: "https://epark.jp",
-    type1: "paid",
-    type2: "portal",
-    importance: "high",
-    siteType: "master",
-    isActive: true,
-  },
-  {
-    id: "3",
-    name: "Yahoo!プレイス",
-    url: "https://place.yahoo.co.jp",
-    type1: "free",
-    type2: "portal",
-    importance: "high",
-    siteType: "master",
-    isActive: true,
-  },
-  {
-    id: "4",
-    name: "Facebook",
-    url: "https://facebook.com",
-    type1: "free",
-    type2: "sns",
-    importance: "medium",
-    siteType: "master",
-    isActive: true,
-  },
-  {
-    id: "5",
-    name: "ジョブメドレー",
-    url: "https://job-medley.com",
-    type1: "paid",
-    type2: "job",
-    importance: "low",
-    siteType: "master",
-    isActive: true,
-  },
-]
-
-const importanceColors = {
+const importanceColors: Record<Importance, string> = {
   high: "bg-red-100 text-red-800",
   medium: "bg-yellow-100 text-yellow-800",
   low: "bg-gray-100 text-gray-800",
 }
 
-export default function SitesPage() {
-  const masterSites = sites.filter((s) => s.siteType === "master")
-  const autoSites = sites.filter((s) => s.siteType === "auto")
-  const manualSites = sites.filter((s) => s.siteType === "manual")
+interface SiteTableProps {
+  data: SiteWithStats[]
+  isLoading: boolean
+}
 
-  const SiteTable = ({ data }: { data: typeof sites }) => (
+function SiteTable({ data, isLoading }: SiteTableProps) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
+  return (
     <Table>
       <TableHeader>
         <TableRow>
@@ -112,6 +59,7 @@ export default function SitesPage() {
           <TableHead>種別</TableHead>
           <TableHead>カテゴリ</TableHead>
           <TableHead>重要度</TableHead>
+          <TableHead>紐付け医院</TableHead>
           <TableHead>ステータス</TableHead>
           <TableHead className="w-[100px]">操作</TableHead>
         </TableRow>
@@ -119,7 +67,7 @@ export default function SitesPage() {
       <TableBody>
         {data.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6} className="h-24 text-center">
+            <TableCell colSpan={7} className="h-24 text-center">
               <div className="flex flex-col items-center gap-2 text-gray-500">
                 <Globe className="h-8 w-8" />
                 <p>サイトが登録されていません</p>
@@ -143,14 +91,15 @@ export default function SitesPage() {
                 </div>
               </TableCell>
               <TableCell>
-                <Badge variant="outline">{SITE_TYPE1_LABELS[site.type1]}</Badge>
+                <Badge variant="outline">{SITE_TYPE1_LABELS[site.type1 as SiteType1]}</Badge>
               </TableCell>
-              <TableCell>{SITE_TYPE2_LABELS[site.type2]}</TableCell>
+              <TableCell>{SITE_TYPE2_LABELS[site.type2 as SiteType2]}</TableCell>
               <TableCell>
-                <Badge className={importanceColors[site.importance]}>
-                  {IMPORTANCE_LABELS[site.importance]}
+                <Badge className={importanceColors[site.importance as Importance]}>
+                  {IMPORTANCE_LABELS[site.importance as Importance]}
                 </Badge>
               </TableCell>
+              <TableCell>{site.clinicCount}院</TableCell>
               <TableCell>
                 <Badge variant={site.isActive ? "success" : "secondary"}>
                   {site.isActive ? "有効" : "無効"}
@@ -169,6 +118,26 @@ export default function SitesPage() {
       </TableBody>
     </Table>
   )
+}
+
+export default function SitesPage() {
+  const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 300)
+
+  const { data, isLoading, error } = useSites({
+    search: debouncedSearch || undefined,
+  })
+
+  const sites = data?.sites ?? []
+  const pagination = data?.pagination
+
+  const masterSites = sites.filter((s) => s.siteType === "master")
+  const autoSites = sites.filter((s) => s.siteType === "auto")
+  const manualSites = sites.filter((s) => s.siteType === "manual")
+
+  const totalSites = pagination?.total ?? 0
+  const highImportanceSites = sites.filter((s) => s.importance === "high").length
+  const activeSites = sites.filter((s) => s.isActive).length
 
   return (
     <div className="space-y-6">
@@ -197,7 +166,9 @@ export default function SitesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{sites.length}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "-" : totalSites}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -207,7 +178,9 @@ export default function SitesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{masterSites.length}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "-" : masterSites.length}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -218,7 +191,7 @@ export default function SitesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {sites.filter((s) => s.importance === "high").length}
+              {isLoading ? "-" : highImportanceSites}
             </div>
           </CardContent>
         </Card>
@@ -230,7 +203,7 @@ export default function SitesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {sites.filter((s) => s.isActive).length}
+              {isLoading ? "-" : activeSites}
             </div>
           </CardContent>
         </Card>
@@ -240,28 +213,40 @@ export default function SitesPage() {
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input placeholder="サイト名で検索..." className="pl-10" />
+          <Input
+            placeholder="サイト名で検索..."
+            className="pl-10"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
+
+      {/* エラー表示 */}
+      {error && (
+        <div className="text-red-500 text-center py-4">
+          データの取得に失敗しました
+        </div>
+      )}
 
       {/* タブ */}
       <Tabs defaultValue="master">
         <TabsList>
           <TabsTrigger value="master">
-            マスタサイト ({masterSites.length})
+            マスタサイト ({isLoading ? "-" : masterSites.length})
           </TabsTrigger>
           <TabsTrigger value="auto">
-            自動追加 ({autoSites.length})
+            自動追加 ({isLoading ? "-" : autoSites.length})
           </TabsTrigger>
           <TabsTrigger value="manual">
-            手動追加 ({manualSites.length})
+            手動追加 ({isLoading ? "-" : manualSites.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="master">
           <Card>
             <CardContent className="p-0">
-              <SiteTable data={masterSites} />
+              <SiteTable data={masterSites} isLoading={isLoading} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -269,7 +254,7 @@ export default function SitesPage() {
         <TabsContent value="auto">
           <Card>
             <CardContent className="p-0">
-              <SiteTable data={autoSites} />
+              <SiteTable data={autoSites} isLoading={isLoading} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -277,7 +262,7 @@ export default function SitesPage() {
         <TabsContent value="manual">
           <Card>
             <CardContent className="p-0">
-              <SiteTable data={manualSites} />
+              <SiteTable data={manualSites} isLoading={isLoading} />
             </CardContent>
           </Card>
         </TabsContent>
