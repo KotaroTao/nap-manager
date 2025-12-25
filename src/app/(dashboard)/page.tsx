@@ -4,6 +4,8 @@
  * 全体の統計情報とクイックアクションを表示します。
  */
 
+"use client"
+
 import Link from "next/link"
 import {
   Building2,
@@ -14,73 +16,62 @@ import {
   ArrowRight,
   TrendingUp,
   FileEdit,
+  Loader2,
+  RefreshCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-
-// 仮の統計データ（後でAPIから取得）
-const stats = {
-  totalClinics: 15,
-  activeClinics: 12,
-  totalSites: 45,
-  masterSites: 20,
-  overallMatchRate: 72,
-  mismatchedCount: 23,
-  pendingRequests: 8,
-  needsFollowUp: 3,
-}
-
-const recentMismatches = [
-  {
-    id: "1",
-    clinicName: "山田歯科クリニック",
-    siteName: "EPARK歯科",
-    issue: "電話番号が異なる",
-    daysAgo: 2,
-  },
-  {
-    id: "2",
-    clinicName: "鈴木デンタルオフィス",
-    siteName: "Google ビジネスプロフィール",
-    issue: "住所が古い",
-    daysAgo: 3,
-  },
-  {
-    id: "3",
-    clinicName: "田中歯科医院",
-    siteName: "歯科タウン",
-    issue: "医院名の表記揺れ",
-    daysAgo: 5,
-  },
-]
-
-const urgentTasks = [
-  {
-    id: "1",
-    clinicName: "山田歯科クリニック",
-    siteName: "Google ビジネスプロフィール",
-    priority: "urgent",
-    daysElapsed: 14,
-  },
-  {
-    id: "2",
-    clinicName: "鈴木デンタルオフィス",
-    siteName: "Facebook",
-    priority: "high",
-    daysElapsed: 10,
-  },
-]
+import { useDashboard } from "@/hooks/use-dashboard"
 
 export default function DashboardPage() {
+  const { data, isLoading, error, refetch, isRefetching } = useDashboard()
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <AlertTriangle className="h-8 w-8 text-red-500" />
+        <p className="text-red-500">データの取得に失敗しました</p>
+        <Button onClick={() => refetch()} variant="outline">
+          再読み込み
+        </Button>
+      </div>
+    )
+  }
+
+  const { stats, urgentTasks, recentMismatches } = data
+
   return (
     <div className="space-y-6">
       {/* ヘッダー */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">ダッシュボード</h2>
-        <p className="text-gray-500 mt-1">
-          NAP統一状況の概要と優先タスクを確認できます
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">ダッシュボード</h2>
+          <p className="text-gray-500 mt-1">
+            NAP統一状況の概要と優先タスクを確認できます
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isRefetching}
+        >
+          {isRefetching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          <span className="ml-2">更新</span>
+        </Button>
       </div>
 
       {/* 統計カード */}
@@ -128,7 +119,7 @@ export default function DashboardPage() {
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full mt-2">
               <div
-                className="h-full bg-blue-600 rounded-full"
+                className="h-full bg-blue-600 rounded-full transition-all duration-500"
                 style={{ width: `${stats.overallMatchRate}%` }}
               />
             </div>
@@ -144,7 +135,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              {stats.mismatchedCount}件
+              {stats.mismatchedCount + stats.needsReviewCount}件
             </div>
             <p className="text-xs text-gray-500 mt-1">
               依頼待ち: {stats.pendingRequests}件
@@ -152,6 +143,47 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ステータス詳細 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">ステータス内訳</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg">
+              <div className="w-3 h-3 bg-green-500 rounded-full" />
+              <span className="text-sm text-gray-600">一致:</span>
+              <span className="font-semibold">{stats.matchedCount}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg">
+              <div className="w-3 h-3 bg-red-500 rounded-full" />
+              <span className="text-sm text-gray-600">不一致:</span>
+              <span className="font-semibold">{stats.mismatchedCount}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-lg">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full" />
+              <span className="text-sm text-gray-600">要確認:</span>
+              <span className="font-semibold">{stats.needsReviewCount}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg">
+              <div className="w-3 h-3 bg-blue-500 rounded-full" />
+              <span className="text-sm text-gray-600">未登録:</span>
+              <span className="font-semibold">{stats.unregisteredCount}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+              <div className="w-3 h-3 bg-gray-400 rounded-full" />
+              <span className="text-sm text-gray-600">未チェック:</span>
+              <span className="font-semibold">{stats.uncheckedCount}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
+              <div className="w-3 h-3 bg-gray-700 rounded-full" />
+              <span className="text-sm text-gray-600">アクセス不可:</span>
+              <span className="font-semibold">{stats.inaccessibleCount}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* クイックアクション & フォローアップ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -180,7 +212,12 @@ export default function DashboardPage() {
                     className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100"
                   >
                     <div>
-                      <div className="font-medium">{task.clinicName}</div>
+                      <Link
+                        href={`/clinics/${task.clinicId}`}
+                        className="font-medium hover:underline"
+                      >
+                        {task.clinicName}
+                      </Link>
                       <div className="text-sm text-gray-500">{task.siteName}</div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -193,7 +230,7 @@ export default function DashboardPage() {
                       >
                         {task.daysElapsed}日経過
                       </Badge>
-                      <Link href={`/workspace`}>
+                      <Link href={`/requests/${task.id}`}>
                         <Button variant="ghost" size="sm">
                           <ArrowRight className="h-4 w-4" />
                         </Button>
@@ -201,7 +238,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
-                <Link href="/requests?filter=followup">
+                <Link href="/requests?status=requested">
                   <Button variant="outline" className="w-full">
                     すべて表示
                   </Button>
@@ -219,7 +256,7 @@ export default function DashboardPage() {
               最近検出された不一致
             </CardTitle>
             <CardDescription>
-              直近で見つかったNAP不一致
+              直近7日以内に見つかったNAP不一致
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -236,16 +273,21 @@ export default function DashboardPage() {
                     className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100"
                   >
                     <div>
-                      <div className="font-medium">{mismatch.clinicName}</div>
+                      <Link
+                        href={`/clinics/${mismatch.clinicId}`}
+                        className="font-medium hover:underline"
+                      >
+                        {mismatch.clinicName}
+                      </Link>
                       <div className="text-sm text-gray-500">
                         {mismatch.siteName} - {mismatch.issue}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">
-                        {mismatch.daysAgo}日前
+                        {mismatch.daysAgo === 0 ? "今日" : `${mismatch.daysAgo}日前`}
                       </span>
-                      <Link href={`/workspace`}>
+                      <Link href={`/workspace?clinic=${mismatch.clinicId}`}>
                         <Button variant="ghost" size="sm">
                           <ArrowRight className="h-4 w-4" />
                         </Button>

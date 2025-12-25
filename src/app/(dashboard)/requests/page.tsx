@@ -4,8 +4,11 @@
  * 修正依頼の一覧とステータス管理を行います。
  */
 
+"use client"
+
+import { useState, useMemo } from "react"
 import Link from "next/link"
-import { FileEdit, Clock, CheckCircle, AlertCircle, XCircle, Pause } from "lucide-react"
+import { FileEdit, Clock, CheckCircle, AlertCircle, XCircle, Pause, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,58 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-
-// 仮のデータ
-const requests = [
-  {
-    id: "1",
-    clinicName: "山田歯科クリニック",
-    siteName: "Google ビジネスプロフィール",
-    status: "requested",
-    requestMethod: "form",
-    requestedAt: "2024-12-20",
-    daysElapsed: 5,
-  },
-  {
-    id: "2",
-    clinicName: "山田歯科クリニック",
-    siteName: "EPARK歯科",
-    status: "pending",
-    requestMethod: null,
-    requestedAt: null,
-    daysElapsed: null,
-  },
-  {
-    id: "3",
-    clinicName: "鈴木デンタルオフィス",
-    siteName: "Google ビジネスプロフィール",
-    status: "inProgress",
-    requestMethod: "email",
-    requestedAt: "2024-12-10",
-    daysElapsed: 15,
-  },
-  {
-    id: "4",
-    clinicName: "田中歯科医院",
-    siteName: "歯科タウン",
-    status: "completed",
-    requestMethod: "form",
-    requestedAt: "2024-12-05",
-    daysElapsed: null,
-  },
-  {
-    id: "5",
-    clinicName: "鈴木デンタルオフィス",
-    siteName: "Facebook",
-    status: "requested",
-    requestMethod: "email",
-    requestedAt: "2024-12-13",
-    daysElapsed: 12,
-  },
-]
+import { useCorrectionRequests, type CorrectionRequestWithDetails } from "@/hooks/use-correction-requests"
+import { useDebounce } from "@/hooks/use-debounce"
+import type { CorrectionRequestStatus } from "@/types"
 
 const statusConfig: Record<
-  string,
+  CorrectionRequestStatus,
   { label: string; color: string; icon: React.ReactNode }
 > = {
   pending: {
@@ -120,6 +77,28 @@ const methodLabels: Record<string, string> = {
 }
 
 export default function RequestsPage() {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const debouncedSearch = useDebounce(searchQuery, 300)
+
+  const { data, isLoading } = useCorrectionRequests({
+    status: statusFilter !== "all" ? statusFilter as CorrectionRequestStatus : undefined,
+    limit: 100,
+  })
+
+  const requests = data?.requests || []
+
+  // クライアントサイドで検索フィルタリング
+  const filteredRequests = useMemo(() => {
+    if (!debouncedSearch) return requests
+    const query = debouncedSearch.toLowerCase()
+    return requests.filter(
+      (r) =>
+        r.clinicSite?.clinic?.name?.toLowerCase().includes(query) ||
+        r.clinicSite?.site?.name?.toLowerCase().includes(query)
+    )
+  }, [requests, debouncedSearch])
+
   const pendingCount = requests.filter((r) => r.status === "pending").length
   const requestedCount = requests.filter((r) => r.status === "requested").length
   const inProgressCount = requests.filter((r) => r.status === "inProgress").length
@@ -130,7 +109,7 @@ export default function RequestsPage() {
       r.status === "requested" && r.daysElapsed && r.daysElapsed >= 7
   )
 
-  const RequestTable = ({ data }: { data: typeof requests }) => (
+  const RequestTable = ({ data }: { data: CorrectionRequestWithDetails[] }) => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -156,8 +135,12 @@ export default function RequestsPage() {
         ) : (
           data.map((request) => (
             <TableRow key={request.id}>
-              <TableCell className="font-medium">{request.clinicName}</TableCell>
-              <TableCell>{request.siteName}</TableCell>
+              <TableCell className="font-medium">
+                <Link href={`/clinics/${request.clinicSite?.clinic?.id}`} className="hover:underline">
+                  {request.clinicSite?.clinic?.name || "不明"}
+                </Link>
+              </TableCell>
+              <TableCell>{request.clinicSite?.site?.name || "不明"}</TableCell>
               <TableCell>
                 <Badge
                   className={`${statusConfig[request.status].color} gap-1`}
@@ -171,9 +154,13 @@ export default function RequestsPage() {
                   ? methodLabels[request.requestMethod]
                   : "-"}
               </TableCell>
-              <TableCell>{request.requestedAt || "-"}</TableCell>
               <TableCell>
-                {request.daysElapsed !== null ? (
+                {request.requestedAt
+                  ? new Date(request.requestedAt).toLocaleDateString("ja-JP")
+                  : "-"}
+              </TableCell>
+              <TableCell>
+                {request.daysElapsed !== null && request.daysElapsed !== undefined ? (
                   <span
                     className={
                       request.daysElapsed >= 7
@@ -201,6 +188,14 @@ export default function RequestsPage() {
     </Table>
   )
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* ヘッダー */}
@@ -227,9 +222,9 @@ export default function RequestsPage() {
                   className="flex items-center justify-between p-2 bg-white rounded-md"
                 >
                   <div>
-                    <span className="font-medium">{request.clinicName}</span>
+                    <span className="font-medium">{request.clinicSite?.clinic?.name}</span>
                     <span className="text-gray-500"> × </span>
-                    <span>{request.siteName}</span>
+                    <span>{request.clinicSite?.site?.name}</span>
                     <span className="text-red-600 ml-2">
                       ({request.daysElapsed}日経過)
                     </span>
@@ -300,8 +295,13 @@ export default function RequestsPage() {
 
       {/* フィルタ */}
       <div className="flex items-center gap-4">
-        <Input placeholder="医院名・サイト名で検索..." className="max-w-sm" />
-        <Select defaultValue="all">
+        <Input
+          placeholder="医院名・サイト名で検索..."
+          className="max-w-sm"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="ステータス" />
           </SelectTrigger>
@@ -318,7 +318,7 @@ export default function RequestsPage() {
       {/* タブ */}
       <Tabs defaultValue="all">
         <TabsList>
-          <TabsTrigger value="all">すべて ({requests.length})</TabsTrigger>
+          <TabsTrigger value="all">すべて ({filteredRequests.length})</TabsTrigger>
           <TabsTrigger value="pending">未対応 ({pendingCount})</TabsTrigger>
           <TabsTrigger value="active">
             対応中 ({requestedCount + inProgressCount})
@@ -329,7 +329,7 @@ export default function RequestsPage() {
         <TabsContent value="all">
           <Card>
             <CardContent className="p-0">
-              <RequestTable data={requests} />
+              <RequestTable data={filteredRequests} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -338,7 +338,7 @@ export default function RequestsPage() {
           <Card>
             <CardContent className="p-0">
               <RequestTable
-                data={requests.filter((r) => r.status === "pending")}
+                data={filteredRequests.filter((r) => r.status === "pending")}
               />
             </CardContent>
           </Card>
@@ -348,7 +348,7 @@ export default function RequestsPage() {
           <Card>
             <CardContent className="p-0">
               <RequestTable
-                data={requests.filter(
+                data={filteredRequests.filter(
                   (r) =>
                     r.status === "requested" || r.status === "inProgress"
                 )}
@@ -361,7 +361,7 @@ export default function RequestsPage() {
           <Card>
             <CardContent className="p-0">
               <RequestTable
-                data={requests.filter((r) => r.status === "completed")}
+                data={filteredRequests.filter((r) => r.status === "completed")}
               />
             </CardContent>
           </Card>

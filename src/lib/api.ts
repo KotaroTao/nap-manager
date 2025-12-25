@@ -57,4 +57,13 @@ export const api = {
     })
     return handleResponse<T>(response)
   },
+
+  patch: async <T>(url: string, data: unknown): Promise<T> => {
+    const response = await fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    })
+    return handleResponse<T>(response)
+  },
 }
