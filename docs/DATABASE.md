@@ -68,8 +68,6 @@
 | phone | VARCHAR(20) | YES | NULL | 電話番号 |
 | role | VARCHAR(20) | NO | 'client' | 権限（admin/client） |
 | email_verified_at | TIMESTAMP | YES | NULL | メール認証日時 |
-| failed_login_attempts | INTEGER | NO | 0 | ログイン失敗回数 |
-| locked_until | TIMESTAMP | YES | NULL | アカウントロック解除日時 |
 | last_login_at | TIMESTAMP | YES | NULL | 最終ログイン日時 |
 | created_at | TIMESTAMP | NO | now() | 作成日時 |
 | updated_at | TIMESTAMP | NO | now() | 更新日時 |
@@ -169,9 +167,13 @@
 |----------|------|------|------------|------|
 | id | UUID | NO | gen_random_uuid() | 主キー |
 | name | VARCHAR(100) | NO | - | サイト名 |
-| category | VARCHAR(50) | NO | - | カテゴリ |
-| base_url | VARCHAR(500) | NO | - | 基本URL |
-| search_url_pattern | VARCHAR(1000) | YES | NULL | 検索URLパターン |
+| site_url | VARCHAR(500) | NO | - | サイトURL |
+| registration_url | VARCHAR(500) | YES | NULL | 新規登録URL |
+| correction_url | VARCHAR(500) | YES | NULL | 修正依頼URL |
+| pricing_type | VARCHAR(20) | NO | 'free' | 種別①（料金体系） |
+| site_type | VARCHAR(20) | NO | 'portal' | 種別②（サイト分類） |
+| contact_method | VARCHAR(20) | NO | 'form' | 変更依頼方法 |
+| comment | TEXT | YES | NULL | コメント |
 | scraping_config | JSONB | YES | NULL | スクレイピング設定 |
 | priority | VARCHAR(10) | NO | 'medium' | 優先度（high/medium/low） |
 | check_frequency | VARCHAR(10) | NO | 'weekly' | チェック頻度 |
@@ -179,14 +181,26 @@
 | created_at | TIMESTAMP | NO | now() | 作成日時 |
 | updated_at | TIMESTAMP | NO | now() | 更新日時 |
 
-**カテゴリ値**
-- `map_service`: 地図サービス
-- `review_site`: 口コミサイト
-- `medical_portal`: 医療情報サイト
+**pricing_type値（種別①）**
+- `free`: 無料
+- `paid`: 有料
+- `approval`: 承認制
+
+**site_type値（種別②）**
+- `sns`: SNS
+- `portal`: ポータルサイト
+- `job`: 求人サイト
+- `other`: その他
+
+**contact_method値（変更依頼方法）**
+- `form`: WEBフォーム
+- `email`: メール
+- `phone`: 電話
 - `other`: その他
 
 **インデックス**
-- `master_sites_category_idx` ON (category)
+- `master_sites_pricing_type_idx` ON (pricing_type)
+- `master_sites_site_type_idx` ON (site_type)
 - `master_sites_is_active_idx` ON (is_active)
 
 ---
@@ -402,19 +416,17 @@ datasource db {
 }
 
 model User {
-  id                  String    @id @default(uuid()) @db.Uuid
-  email               String    @unique @db.VarChar(255)
-  passwordHash        String    @map("password_hash") @db.VarChar(255)
-  name                String    @db.VarChar(100)
-  phone               String?   @db.VarChar(20)
-  role                String    @default("client") @db.VarChar(20)
-  emailVerifiedAt     DateTime? @map("email_verified_at")
-  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime? @map("locked_until")
-  lastLoginAt         DateTime? @map("last_login_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
-  deletedAt           DateTime? @map("deleted_at")
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String    @map("password_hash") @db.VarChar(255)
+  name            String    @db.VarChar(100)
+  phone           String?   @db.VarChar(20)
+  role            String    @default("client") @db.VarChar(20)
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  lastLoginAt     DateTime? @map("last_login_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
 
   userClinics             UserClinic[]
   subscription            Subscription?
@@ -492,17 +504,21 @@ model ClinicAltNap {
 }
 
 model MasterSite {
-  id               String   @id @default(uuid()) @db.Uuid
-  name             String   @db.VarChar(100)
-  category         String   @db.VarChar(50)
-  baseUrl          String   @map("base_url") @db.VarChar(500)
-  searchUrlPattern String?  @map("search_url_pattern") @db.VarChar(1000)
-  scrapingConfig   Json?    @map("scraping_config")
-  priority         String   @default("medium") @db.VarChar(10)
-  checkFrequency   String   @default("weekly") @map("check_frequency") @db.VarChar(10)
-  isActive         Boolean  @default(true) @map("is_active")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String   @db.VarChar(100)
+  siteUrl         String   @map("site_url") @db.VarChar(500)
+  registrationUrl String?  @map("registration_url") @db.VarChar(500)
+  correctionUrl   String?  @map("correction_url") @db.VarChar(500)
+  pricingType     String   @default("free") @map("pricing_type") @db.VarChar(20)
+  siteType        String   @default("portal") @map("site_type") @db.VarChar(20)
+  contactMethod   String   @default("form") @map("contact_method") @db.VarChar(20)
+  comment         String?
+  scrapingConfig  Json?    @map("scraping_config")
+  priority        String   @default("medium") @db.VarChar(10)
+  checkFrequency  String   @default("weekly") @map("check_frequency") @db.VarChar(10)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   clinicSites ClinicSite[]
 
@@ -664,57 +680,69 @@ async function main() {
   const masterSites = [
     {
       name: 'Googleビジネスプロフィール',
-      category: 'map_service',
-      baseUrl: 'https://www.google.com/maps',
+      siteUrl: 'https://www.google.com/maps',
+      registrationUrl: 'https://business.google.com/',
+      correctionUrl: 'https://support.google.com/business/',
+      pricingType: 'free',
+      siteType: 'portal',
+      contactMethod: 'form',
+      comment: 'オーナー確認が必要',
       priority: 'high',
       checkFrequency: 'daily',
     },
     {
       name: 'Yahoo!ロコ',
-      category: 'map_service',
-      baseUrl: 'https://loco.yahoo.co.jp',
+      siteUrl: 'https://loco.yahoo.co.jp',
+      registrationUrl: 'https://loco.yahoo.co.jp/business/',
+      correctionUrl: 'https://loco.yahoo.co.jp/contact/',
+      pricingType: 'free',
+      siteType: 'portal',
+      contactMethod: 'form',
       priority: 'high',
       checkFrequency: 'daily',
     },
     {
       name: 'エキテン',
-      category: 'review_site',
-      baseUrl: 'https://www.ekiten.jp',
+      siteUrl: 'https://www.ekiten.jp',
+      registrationUrl: 'https://www.ekiten.jp/owner/',
+      correctionUrl: 'https://www.ekiten.jp/contact/',
+      pricingType: 'free',
+      siteType: 'portal',
+      contactMethod: 'form',
+      comment: '無料・有料プランあり',
       priority: 'high',
       checkFrequency: 'weekly',
     },
     {
       name: 'EPARK歯科',
-      category: 'medical_portal',
-      baseUrl: 'https://haisha-yoyaku.jp',
+      siteUrl: 'https://haisha-yoyaku.jp',
+      registrationUrl: 'https://haisha-yoyaku.jp/owner/',
+      correctionUrl: 'https://haisha-yoyaku.jp/contact/',
+      pricingType: 'paid',
+      siteType: 'portal',
+      contactMethod: 'form',
       priority: 'high',
       checkFrequency: 'weekly',
     },
     {
-      name: 'デンターネット',
-      category: 'medical_portal',
-      baseUrl: 'https://www.denternet.jp',
-      priority: 'medium',
+      name: 'Instagram',
+      siteUrl: 'https://www.instagram.com',
+      registrationUrl: 'https://www.instagram.com/accounts/emailsignup/',
+      pricingType: 'free',
+      siteType: 'sns',
+      contactMethod: 'other',
+      comment: 'プロフィール欄で直接編集',
+      priority: 'high',
       checkFrequency: 'weekly',
     },
     {
-      name: '歯科タウン',
-      category: 'medical_portal',
-      baseUrl: 'https://www.shika-town.com',
-      priority: 'medium',
-      checkFrequency: 'weekly',
-    },
-    {
-      name: 'Caloo',
-      category: 'review_site',
-      baseUrl: 'https://caloo.jp',
-      priority: 'medium',
-      checkFrequency: 'weekly',
-    },
-    {
-      name: '病院なび',
-      category: 'medical_portal',
-      baseUrl: 'https://byoinnavi.jp',
+      name: 'Indeed',
+      siteUrl: 'https://jp.indeed.com',
+      registrationUrl: 'https://employers.indeed.com/',
+      correctionUrl: 'https://indeed.force.com/employerSupport/',
+      pricingType: 'paid',
+      siteType: 'job',
+      contactMethod: 'form',
       priority: 'medium',
       checkFrequency: 'weekly',
     },
