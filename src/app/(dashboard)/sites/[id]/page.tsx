@@ -6,7 +6,6 @@
 
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import {
@@ -24,7 +23,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -44,7 +43,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { useSite, useDeleteSite } from "@/hooks/use-sites"
+import { useSite, useDeleteSite, type SiteClinicSite } from "@/hooks/use-sites"
 import {
   SITE_TYPE1_LABELS,
   SITE_TYPE2_LABELS,
@@ -52,7 +51,6 @@ import {
   IMPORTANCE_LABELS,
   SEO_IMPACT_LABELS,
   SITE_CATEGORY_LABELS,
-  CLINIC_SITE_STATUS_LABELS,
 } from "@/types"
 import type { ClinicSiteStatus } from "@/types"
 
@@ -272,7 +270,7 @@ export default function SiteDetailPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    clinicSites.map((cs: any) => (
+                    clinicSites.map((cs: SiteClinicSite) => (
                       <TableRow key={cs.id}>
                         <TableCell className="font-medium">
                           <Link

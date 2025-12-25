@@ -52,10 +52,7 @@ import {
   useDeleteCorrectionRequest,
   useAddRequestHistory,
 } from "@/hooks/use-correction-requests"
-import {
-  CORRECTION_REQUEST_STATUS_LABELS,
-  EDIT_METHOD_LABELS,
-} from "@/types"
+import { EDIT_METHOD_LABELS } from "@/types"
 import type { CorrectionRequestStatus, RequestMethod } from "@/types"
 
 const statusConfig: Record<

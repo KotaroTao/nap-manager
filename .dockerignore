@@ -1,0 +1,38 @@
+# 依存関係
+node_modules
+npm-debug.log*
+
+# Next.js
+.next
+out
+
+# テスト
+coverage
+.nyc_output
+
+# 開発用ファイル
+.env
+.env.local
+.env.development
+.env.development.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# ドキュメント
+README.md
+docs/
+
+# その他
+*.log
