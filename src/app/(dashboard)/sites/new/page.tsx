@@ -9,11 +9,12 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
@@ -23,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
+import { useCreateSite } from "@/hooks/use-sites"
 import {
   SITE_TYPE1_LABELS,
   SITE_TYPE2_LABELS,
@@ -31,43 +33,44 @@ import {
   SEO_IMPACT_LABELS,
   SITE_CATEGORY_LABELS,
 } from "@/types"
+import type { SiteType1, SiteType2, EditMethod, Importance, SeoImpact, SiteCategory } from "@/types"
 
 export default function NewSitePage() {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
+  const [autoLinkAllClinics, setAutoLinkAllClinics] = useState(false)
+  const createSite = useCreateSite()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsLoading(true)
 
-    try {
-      const formData = new FormData(e.currentTarget)
-      const data = {
-        name: formData.get("name"),
-        url: formData.get("url"),
-        registerUrl: formData.get("registerUrl"),
-        editUrl: formData.get("editUrl"),
-        type1: formData.get("type1"),
-        type2: formData.get("type2"),
-        editMethod: formData.get("editMethod"),
-        importance: formData.get("importance"),
-        seoImpact: formData.get("seoImpact"),
-        siteType: formData.get("siteType"),
-        template: formData.get("template"),
-        comment: formData.get("comment"),
-      }
-
-      // TODO: APIに送信
-      console.log("Submitting:", data)
-
-      toast.success("サイトを登録しました")
-      router.push("/sites")
-    } catch (error) {
-      console.error(error)
-      toast.error("登録に失敗しました")
-    } finally {
-      setIsLoading(false)
+    const formData = new FormData(e.currentTarget)
+    const data = {
+      name: formData.get("name") as string,
+      url: formData.get("url") as string,
+      registerUrl: (formData.get("registerUrl") as string) || undefined,
+      editUrl: (formData.get("editUrl") as string) || undefined,
+      type1: formData.get("type1") as SiteType1,
+      type2: formData.get("type2") as SiteType2,
+      editMethod: formData.get("editMethod") as EditMethod,
+      importance: formData.get("importance") as Importance,
+      seoImpact: formData.get("seoImpact") as SeoImpact,
+      siteType: formData.get("siteType") as SiteCategory,
+      template: (formData.get("template") as string) || undefined,
+      comment: (formData.get("comment") as string) || undefined,
+      isActive: true,
+      autoLinkAllClinics,
     }
+
+    createSite.mutate(data, {
+      onSuccess: () => {
+        toast.success("サイトを登録しました")
+        router.push("/sites")
+      },
+      onError: (error) => {
+        console.error(error)
+        toast.error(error.message || "登録に失敗しました")
+      },
+    })
   }
 
   return (
@@ -304,15 +307,47 @@ export default function NewSitePage() {
           </CardContent>
         </Card>
 
+        {/* オプション */}
+        <Card>
+          <CardHeader>
+            <CardTitle>オプション</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="autoLinkAllClinics"
+                checked={autoLinkAllClinics}
+                onCheckedChange={(checked) =>
+                  setAutoLinkAllClinics(checked as boolean)
+                }
+                disabled={createSite.isPending}
+              />
+              <Label
+                htmlFor="autoLinkAllClinics"
+                className="text-sm font-normal cursor-pointer"
+              >
+                全ての医院に自動で紐付ける（マスタサイトの場合に推奨）
+              </Label>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 送信ボタン */}
         <div className="flex justify-end gap-4">
           <Link href="/sites">
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={createSite.isPending}>
               キャンセル
             </Button>
           </Link>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "登録中..." : "サイトを登録"}
+          <Button type="submit" disabled={createSite.isPending}>
+            {createSite.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                登録中...
+              </>
+            ) : (
+              "サイトを登録"
+            )}
           </Button>
         </div>
       </form>

@@ -120,7 +120,9 @@ export default function LoginPage() {
 
         {/* フッター */}
         <p className="mt-4 text-center text-sm text-gray-500">
-          パスワードを忘れた場合は管理者にお問い合わせください
+          <a href="/forgot-password" className="text-blue-600 hover:underline">
+            パスワードをお忘れですか？
+          </a>
         </p>
       </div>
     </div>

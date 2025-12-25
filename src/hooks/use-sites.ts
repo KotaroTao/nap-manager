@@ -4,11 +4,27 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import type { Site, SiteFormData, SiteCategory, SiteType1, SiteType2 } from "@/types"
+import type { Site, SiteFormData, SiteCategory, SiteType1, SiteType2, Clinic, ClinicSiteStatus } from "@/types"
 
 // API レスポンス型
 export interface SiteWithStats extends Site {
   clinicCount: number
+}
+
+export interface SiteClinicSite {
+  id: string
+  status: ClinicSiteStatus
+  updatedAt: Date
+  clinic: Pick<Clinic, "id" | "name" | "prefecture" | "city">
+}
+
+export interface SiteDetailResponse extends Site {
+  clinicSites: SiteClinicSite[]
+  stats: {
+    totalClinics: number
+    matchedClinics: number
+    mismatchedClinics: number
+  }
 }
 
 export interface SitesResponse {
@@ -67,7 +83,7 @@ export function useSites(params: SitesParams = {}) {
 export function useSite(id: string) {
   return useQuery({
     queryKey: siteKeys.detail(id),
-    queryFn: () => api.get<Site>(`/api/sites/${id}`),
+    queryFn: () => api.get<SiteDetailResponse>(`/api/sites/${id}`),
     enabled: !!id,
   })
 }
