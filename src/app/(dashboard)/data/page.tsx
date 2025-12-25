@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { toast } from "sonner"
 
 interface ImportResult {
   success: number
@@ -78,6 +79,7 @@ export default function DataPage() {
       setImportResult(data.results)
       setShowResultDialog(true)
     } catch (error) {
+      console.error("インポートエラー:", error)
       setImportResult({
         success: 0,
         failed: 1,
@@ -110,8 +112,9 @@ export default function DataPage() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-    } catch {
-      alert("エクスポートに失敗しました")
+    } catch (error) {
+      console.error("エクスポートエラー:", error)
+      toast.error("エクスポートに失敗しました")
     } finally {
       setExportStatus(null)
     }
@@ -140,8 +143,9 @@ export default function DataPage() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-    } catch {
-      alert("エクスポートに失敗しました")
+    } catch (error) {
+      console.error("エクスポートエラー:", error)
+      toast.error("エクスポートに失敗しました")
     } finally {
       setExportStatus(null)
     }

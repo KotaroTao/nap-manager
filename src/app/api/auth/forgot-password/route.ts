@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { randomBytes } from "crypto"
+import { sendPasswordResetEmail } from "@/lib/email"
 
 /**
  * パスワードリセットを要求
@@ -60,12 +61,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // TODO: 実際のメール送信処理を実装
-    // 開発環境ではコンソールにリセットURLを出力
+    // パスワードリセットメールを送信
     const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/reset-password?token=${token}`
-    console.log("=== パスワードリセットURL ===")
-    console.log(resetUrl)
-    console.log("============================")
+    const emailResult = await sendPasswordResetEmail(email, resetUrl)
+
+    if (!emailResult.success) {
+      console.error("メール送信エラー:", emailResult.error)
+    }
 
     return NextResponse.json({
       message: "パスワードリセットのメールを送信しました（登録されている場合）",
