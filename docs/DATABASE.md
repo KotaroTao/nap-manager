@@ -161,7 +161,7 @@
 
 ### 3.6 master_sites（マスタサイト）
 
-管理者が登録する共通監視対象サイト。
+管理者が登録する共通確認対象サイト。
 
 | カラム名 | 型 | NULL | デフォルト | 説明 |
 |----------|------|------|------------|------|
@@ -174,9 +174,8 @@
 | site_type | VARCHAR(20) | NO | 'portal' | 種別②（サイト分類） |
 | contact_method | VARCHAR(20) | NO | 'form' | 変更依頼方法 |
 | comment | TEXT | YES | NULL | コメント |
-| scraping_config | JSONB | YES | NULL | スクレイピング設定 |
 | priority | VARCHAR(10) | NO | 'medium' | 優先度（high/medium/low） |
-| check_frequency | VARCHAR(10) | NO | 'weekly' | チェック頻度 |
+| check_frequency | VARCHAR(10) | NO | 'monthly' | 確認推奨頻度 |
 | is_active | BOOLEAN | NO | true | 有効フラグ |
 | created_at | TIMESTAMP | NO | now() | 作成日時 |
 | updated_at | TIMESTAMP | NO | now() | 更新日時 |
@@ -207,41 +206,33 @@
 
 ### 3.7 clinic_sites（医院サイト）
 
-各医院の監視対象サイト（マスタ、自動追加、手動追加）。
+各医院の確認対象サイト（マスタまたは手動追加）。
 
 | カラム名 | 型 | NULL | デフォルト | 説明 |
 |----------|------|------|------------|------|
 | id | UUID | NO | gen_random_uuid() | 主キー |
 | clinic_id | UUID | NO | - | 医院ID（FK） |
-| master_site_id | UUID | YES | NULL | マスタサイトID（FK、NULLの場合は手動/自動） |
-| source_type | VARCHAR(20) | NO | - | 種別（master/auto/manual） |
+| master_site_id | UUID | YES | NULL | マスタサイトID（FK、NULLの場合は手動追加） |
+| source_type | VARCHAR(20) | NO | - | 種別（master/manual） |
 | name | VARCHAR(100) | NO | - | サイト名 |
-| url | VARCHAR(1000) | NO | - | 掲載ページURL |
-| status | VARCHAR(20) | NO | 'unchecked' | チェックステータス |
-| auto_status | VARCHAR(20) | YES | NULL | 自動追加時のステータス |
+| url | VARCHAR(1000) | YES | NULL | 医院ページURL（特定できる場合） |
+| status | VARCHAR(20) | NO | 'unchecked' | 確認ステータス |
 | note | TEXT | YES | NULL | メモ |
-| last_checked_at | TIMESTAMP | YES | NULL | 最終チェック日時 |
-| next_check_at | TIMESTAMP | YES | NULL | 次回チェック予定日時 |
+| last_checked_at | TIMESTAMP | YES | NULL | 最終確認日時 |
+| next_check_at | TIMESTAMP | YES | NULL | 次回確認推奨日時 |
 | created_at | TIMESTAMP | NO | now() | 作成日時 |
 | updated_at | TIMESTAMP | NO | now() | 更新日時 |
 | deleted_at | TIMESTAMP | YES | NULL | 削除日時 |
 
 **source_type値**
 - `master`: マスタサイトから生成
-- `auto`: 自動発見
 - `manual`: 手動追加
 
 **status値**
 - `match`: 一致
-- `needs_review`: 要確認
 - `mismatch`: 不一致
-- `unchecked`: 未チェック
-- `inaccessible`: アクセス不可
-
-**auto_status値**
-- `unconfirmed`: 未確認
-- `confirmed`: 確認済み
-- `excluded`: 除外
+- `not_listed`: 未掲載
+- `unchecked`: 未確認
 
 **インデックス**
 - `clinic_sites_clinic_id_idx` ON (clinic_id)
@@ -251,24 +242,25 @@
 
 ---
 
-### 3.8 site_checks（サイトチェック履歴）
+### 3.8 site_checks（確認履歴）
 
-各サイトのNAPチェック結果を履歴として保存。
+各サイトのNAP確認結果を履歴として保存（ユーザーが手動で入力）。
 
 | カラム名 | 型 | NULL | デフォルト | 説明 |
 |----------|------|------|------------|------|
 | id | UUID | NO | gen_random_uuid() | 主キー |
 | clinic_site_id | UUID | NO | - | 医院サイトID（FK） |
-| status | VARCHAR(20) | NO | - | チェック結果ステータス |
-| detected_name | VARCHAR(200) | YES | NULL | 検出された医院名 |
-| detected_address | VARCHAR(500) | YES | NULL | 検出された住所 |
-| detected_phone | VARCHAR(50) | YES | NULL | 検出された電話番号 |
-| raw_html | TEXT | YES | NULL | 取得したHTML（デバッグ用） |
-| error_message | TEXT | YES | NULL | エラーメッセージ |
-| checked_at | TIMESTAMP | NO | now() | チェック実行日時 |
+| checked_by | UUID | NO | - | 確認者（ユーザーID、FK） |
+| status | VARCHAR(20) | NO | - | 確認結果ステータス |
+| confirmed_name | VARCHAR(200) | YES | NULL | 確認した医院名 |
+| confirmed_address | VARCHAR(500) | YES | NULL | 確認した住所 |
+| confirmed_phone | VARCHAR(50) | YES | NULL | 確認した電話番号 |
+| note | TEXT | YES | NULL | メモ |
+| checked_at | TIMESTAMP | NO | now() | 確認実行日時 |
 
 **インデックス**
 - `site_checks_clinic_site_id_idx` ON (clinic_site_id)
+- `site_checks_checked_by_idx` ON (checked_by)
 - `site_checks_checked_at_idx` ON (checked_at)
 
 ---
@@ -433,6 +425,7 @@ model User {
   notificationSetting     NotificationSetting?
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+  siteChecks              SiteCheck[]
 
   @@map("users")
 }
@@ -513,9 +506,8 @@ model MasterSite {
   siteType        String   @default("portal") @map("site_type") @db.VarChar(20)
   contactMethod   String   @default("form") @map("contact_method") @db.VarChar(20)
   comment         String?
-  scrapingConfig  Json?    @map("scraping_config")
   priority        String   @default("medium") @db.VarChar(10)
-  checkFrequency  String   @default("weekly") @map("check_frequency") @db.VarChar(10)
+  checkFrequency  String   @default("monthly") @map("check_frequency") @db.VarChar(10)
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -531,9 +523,8 @@ model ClinicSite {
   masterSiteId  String?   @map("master_site_id") @db.Uuid
   sourceType    String    @map("source_type") @db.VarChar(20)
   name          String    @db.VarChar(100)
-  url           String    @db.VarChar(1000)
+  url           String?   @db.VarChar(1000)
   status        String    @default("unchecked") @db.VarChar(20)
-  autoStatus    String?   @map("auto_status") @db.VarChar(20)
   note          String?
   lastCheckedAt DateTime? @map("last_checked_at")
   nextCheckAt   DateTime? @map("next_check_at")
@@ -550,17 +541,18 @@ model ClinicSite {
 }
 
 model SiteCheck {
-  id              String   @id @default(uuid()) @db.Uuid
-  clinicSiteId    String   @map("clinic_site_id") @db.Uuid
-  status          String   @db.VarChar(20)
-  detectedName    String?  @map("detected_name") @db.VarChar(200)
-  detectedAddress String?  @map("detected_address") @db.VarChar(500)
-  detectedPhone   String?  @map("detected_phone") @db.VarChar(50)
-  rawHtml         String?  @map("raw_html")
-  errorMessage    String?  @map("error_message")
-  checkedAt       DateTime @default(now()) @map("checked_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  clinicSiteId     String   @map("clinic_site_id") @db.Uuid
+  checkedBy        String   @map("checked_by") @db.Uuid
+  status           String   @db.VarChar(20)
+  confirmedName    String?  @map("confirmed_name") @db.VarChar(200)
+  confirmedAddress String?  @map("confirmed_address") @db.VarChar(500)
+  confirmedPhone   String?  @map("confirmed_phone") @db.VarChar(50)
+  note             String?
+  checkedAt        DateTime @default(now()) @map("checked_at")
 
   clinicSite         ClinicSite          @relation(fields: [clinicSiteId], references: [id])
+  checkedByUser      User                @relation(fields: [checkedBy], references: [id])
   correctionRequests CorrectionRequest[]
 
   @@map("site_checks")
