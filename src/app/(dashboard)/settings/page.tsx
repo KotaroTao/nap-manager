@@ -6,8 +6,8 @@
 
 "use client"
 
-import { useState } from "react"
-import { Bell, Mail, User, Save } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Bell, Mail, User, Save, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,11 +16,19 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
+import {
+  useNotificationSettings,
+  useUpdateNotificationSettings,
+  useEmailTemplate,
+  useUpdateEmailTemplate,
+  useAccountInfo,
+  useUpdateAccount,
+} from "@/hooks/use-settings"
 
 export default function SettingsPage() {
-  const [isLoading, setIsLoading] = useState(false)
-
   // 通知設定
+  const { data: notificationData, isLoading: isLoadingNotifications } = useNotificationSettings()
+  const updateNotifications = useUpdateNotificationSettings()
   const [notificationSettings, setNotificationSettings] = useState({
     newMismatch: true,
     weeklySummary: true,
@@ -30,29 +38,16 @@ export default function SettingsPage() {
   })
 
   // メールテンプレート
+  const { data: templateData, isLoading: isLoadingTemplate } = useEmailTemplate()
+  const updateTemplate = useUpdateEmailTemplate()
   const [emailTemplate, setEmailTemplate] = useState({
-    subject: "【NAP情報修正依頼】{clinic_name}の情報修正のお願い",
-    body: `お世話になっております。
-{clinic_name}の情報管理担当です。
-
-貴サイトに掲載されている当院の情報について、
-以下の通り修正をお願いいたします。
-
-■ 現在の掲載情報
-医院名: {current_name}
-住所: {current_address}
-電話番号: {current_phone}
-
-■ 正しい情報
-医院名: {correct_name}
-住所: {correct_address}
-電話番号: {correct_phone}
-
-お手数をおかけしますが、
-ご対応のほどよろしくお願いいたします。`,
+    subject: "",
+    body: "",
   })
 
   // アカウント設定
+  const { data: accountData, isLoading: isLoadingAccount } = useAccountInfo()
+  const updateAccount = useUpdateAccount()
   const [accountSettings, setAccountSettings] = useState({
     name: "",
     email: "",
@@ -61,60 +56,98 @@ export default function SettingsPage() {
     confirmPassword: "",
   })
 
-  const handleSaveNotifications = async () => {
-    setIsLoading(true)
-    try {
-      // TODO: APIに送信
-      console.log("Saving notification settings:", notificationSettings)
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      toast.success("通知設定を保存しました")
-    } catch (error) {
-      console.error(error)
-      toast.error("保存に失敗しました")
-    } finally {
-      setIsLoading(false)
+  // データが読み込まれたらstateを更新
+  useEffect(() => {
+    if (notificationData) {
+      setNotificationSettings({
+        newMismatch: notificationData.newMismatch,
+        weeklySummary: notificationData.weeklySummary,
+        followUpReminder: notificationData.followUpReminder,
+        accessError: notificationData.accessError,
+        reminderDays: notificationData.reminderDays,
+      })
     }
+  }, [notificationData])
+
+  useEffect(() => {
+    if (templateData) {
+      setEmailTemplate({
+        subject: templateData.subject,
+        body: templateData.body,
+      })
+    }
+  }, [templateData])
+
+  useEffect(() => {
+    if (accountData) {
+      setAccountSettings((prev) => ({
+        ...prev,
+        name: accountData.name,
+        email: accountData.email,
+      }))
+    }
+  }, [accountData])
+
+  const handleSaveNotifications = () => {
+    updateNotifications.mutate(notificationSettings, {
+      onSuccess: () => {
+        toast.success("通知設定を保存しました")
+      },
+      onError: (error) => {
+        toast.error(error.message || "保存に失敗しました")
+      },
+    })
   }
 
-  const handleSaveTemplate = async () => {
-    setIsLoading(true)
-    try {
-      // TODO: APIに送信
-      console.log("Saving email template:", emailTemplate)
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      toast.success("メールテンプレートを保存しました")
-    } catch (error) {
-      console.error(error)
-      toast.error("保存に失敗しました")
-    } finally {
-      setIsLoading(false)
-    }
+  const handleSaveTemplate = () => {
+    updateTemplate.mutate(emailTemplate, {
+      onSuccess: () => {
+        toast.success("メールテンプレートを保存しました")
+      },
+      onError: (error) => {
+        toast.error(error.message || "保存に失敗しました")
+      },
+    })
   }
 
-  const handleSaveAccount = async () => {
+  const handleSaveAccount = () => {
     if (accountSettings.newPassword !== accountSettings.confirmPassword) {
       toast.error("新しいパスワードが一致しません")
       return
     }
 
-    setIsLoading(true)
-    try {
-      // TODO: APIに送信
-      console.log("Saving account settings:", accountSettings)
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      toast.success("アカウント設定を保存しました")
-      setAccountSettings((prev) => ({
-        ...prev,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      }))
-    } catch (error) {
-      console.error(error)
-      toast.error("保存に失敗しました")
-    } finally {
-      setIsLoading(false)
-    }
+    updateAccount.mutate(
+      {
+        name: accountSettings.name,
+        email: accountSettings.email,
+        currentPassword: accountSettings.currentPassword || undefined,
+        newPassword: accountSettings.newPassword || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("アカウント設定を保存しました")
+          setAccountSettings((prev) => ({
+            ...prev,
+            currentPassword: "",
+            newPassword: "",
+            confirmPassword: "",
+          }))
+        },
+        onError: (error) => {
+          toast.error(error.message || "保存に失敗しました")
+        },
+      }
+    )
+  }
+
+  const isLoading = isLoadingNotifications || isLoadingTemplate || isLoadingAccount
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    )
   }
 
   return (
@@ -240,9 +273,16 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <Button onClick={handleSaveNotifications} disabled={isLoading}>
-                <Save className="h-4 w-4 mr-2" />
-                {isLoading ? "保存中..." : "保存"}
+              <Button
+                onClick={handleSaveNotifications}
+                disabled={updateNotifications.isPending}
+              >
+                {updateNotifications.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {updateNotifications.isPending ? "保存中..." : "保存"}
               </Button>
             </CardContent>
           </Card>
@@ -343,9 +383,13 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <Button onClick={handleSaveTemplate} disabled={isLoading}>
-                <Save className="h-4 w-4 mr-2" />
-                {isLoading ? "保存中..." : "保存"}
+              <Button onClick={handleSaveTemplate} disabled={updateTemplate.isPending}>
+                {updateTemplate.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {updateTemplate.isPending ? "保存中..." : "保存"}
               </Button>
             </CardContent>
           </Card>
@@ -445,9 +489,13 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <Button onClick={handleSaveAccount} disabled={isLoading}>
-                <Save className="h-4 w-4 mr-2" />
-                {isLoading ? "保存中..." : "保存"}
+              <Button onClick={handleSaveAccount} disabled={updateAccount.isPending}>
+                {updateAccount.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {updateAccount.isPending ? "保存中..." : "保存"}
               </Button>
             </CardContent>
           </Card>
