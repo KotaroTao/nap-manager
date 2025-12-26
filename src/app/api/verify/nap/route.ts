@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import type { MatchStatus, VerificationStatus } from "@prisma/client"
+import type { MatchStatus, VerificationStatus } from "@/types"
 
 /**
  * 住所を正規化

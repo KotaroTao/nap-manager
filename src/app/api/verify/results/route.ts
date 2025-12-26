@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import type { VerificationStatus } from "@prisma/client"
+import type { VerificationStatus } from "@/types"
 
 /**
  * 検証結果一覧を取得

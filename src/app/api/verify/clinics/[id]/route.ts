@@ -55,12 +55,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // 統計情報を計算
-    let verified = 0
-    let matched = 0
-    let mismatched = 0
-    let needsReview = 0
-    let notFound = 0
-    let lastVerifiedAt: Date | null = null
+    const stats = {
+      verified: 0,
+      matched: 0,
+      mismatched: 0,
+      needsReview: 0,
+      notFound: 0,
+      lastVerifiedAt: null as Date | null,
+    }
 
     // サイト別検証結果を整形
     const siteResults = clinic.clinicSites.map((clinicSite) => {
@@ -69,23 +71,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       const fullAddress = `${clinic.prefecture}${clinic.city}${clinic.address}`
 
       if (latestLog) {
-        verified++
+        stats.verified++
         switch (latestLog.overallStatus) {
           case "verified":
-            matched++
+            stats.matched++
             break
           case "mismatch":
-            mismatched++
+            stats.mismatched++
             break
           case "needsReview":
-            needsReview++
+            stats.needsReview++
             break
           case "notFound":
-            notFound++
+            stats.notFound++
             break
         }
-        if (!lastVerifiedAt || latestLog.verifiedAt > lastVerifiedAt) {
-          lastVerifiedAt = latestLog.verifiedAt
+        if (!stats.lastVerifiedAt || latestLog.verifiedAt > stats.lastVerifiedAt) {
+          stats.lastVerifiedAt = latestLog.verifiedAt
         }
       }
 
@@ -219,12 +221,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       siteResults,
       summary: {
         totalSites: clinic.clinicSites.length,
-        verified,
-        matched,
-        mismatched,
-        needsReview,
-        notFound,
-        lastVerifiedAt: lastVerifiedAt?.toISOString() || null,
+        verified: stats.verified,
+        matched: stats.matched,
+        mismatched: stats.mismatched,
+        needsReview: stats.needsReview,
+        notFound: stats.notFound,
+        lastVerifiedAt: stats.lastVerifiedAt?.toISOString() || null,
       },
     })
   } catch (error) {
