@@ -10,6 +10,7 @@
 2. **NAP情報の照合・比較**: 正式情報との差分を検出
 3. **不一致時の修正依頼リンク表示**: ワンクリックで修正依頼ページへ遷移
 4. **医院情報ページリンクの表示**: 各サイトの医院掲載ページへの直接リンク
+5. **未登録時の新規登録ページ表示**: サイト上で医院が見つからない場合、新規登録ページへのリンクを表示
 
 ---
 
@@ -230,6 +231,7 @@ interface VerificationResult {
     name: string;
     url: string;
     correctionRequestUrl: string | null;
+    registrationUrl: string | null;       // 新規登録ページURL
   };
   clinicPageUrl: string | null;      // 医院情報ページURL
 
@@ -257,8 +259,9 @@ interface VerificationResult {
 
   // リンク情報
   links: {
-    clinicPage: string | null;       // 医院情報ページ
+    clinicPage: string | null;        // 医院情報ページ
     correctionRequest: string | null; // 修正依頼ページ
+    registration: string | null;      // 新規登録ページ（未登録時に表示）
     siteSearch: string | null;        // サイト内検索ページ
   };
 
@@ -293,8 +296,9 @@ interface SiteVerificationResult {
   clinicSite: ClinicSite;
   latestVerification: VerificationLog | null;
   links: {
-    clinicPage: string | null;
-    correctionRequest: string | null;
+    clinicPage: string | null;        // 医院情報ページ
+    correctionRequest: string | null; // 修正依頼ページ
+    registration: string | null;      // 新規登録ページ（未登録時に表示）
   };
   status: VerificationStatus;
   mismatchDetails: MismatchDetail[];
@@ -460,10 +464,10 @@ src/app/(dashboard)/
 │  NAP検証ダッシュボード                                          │
 ├────────────────────────────────────────────────────────────────┤
 │                                                                │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌────────┐ │
-│  │ 検証済み      │ │ 一致         │ │ 不一致       │ │ 要確認  │ │
-│  │    150       │ │    120       │ │     20       │ │   10   │ │
-│  └──────────────┘ └──────────────┘ └──────────────┘ └────────┘ │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ │
+│  │ 検証済み │ │ 一致     │ │ 不一致   │ │ 要確認   │ │ 未登録   │ │
+│  │   150   │ │   120   │ │    20   │ │    5    │ │    5    │ │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘ │
 │                                                                │
 │  ┌────────────────────────────────────────────────────────────┐│
 │  │ 一括検証                                                    ││
@@ -587,6 +591,7 @@ src/components/
 interface SiteLinkButtonsProps {
   clinicPageUrl: string | null;
   correctionRequestUrl: string | null;
+  registrationUrl: string | null;         // 新規登録ページURL（Site.registerUrl）
   siteSearchUrl: string | null;
   status: VerificationStatus;
 }
@@ -594,9 +599,18 @@ interface SiteLinkButtonsProps {
 // 表示ロジック
 // - status === 'verified' | 'match': [医院ページ]のみ
 // - status === 'mismatch' | 'needsReview': [医院ページ] + [修正依頼]
-// - status === 'notFound': [サイト内検索] + [新規登録]
+// - status === 'notFound' | 'unregistered': [サイト内検索] + [新規登録]
+//   ※ registrationUrlが存在する場合のみ[新規登録]ボタンを表示
 // - status === 'error': [再検証]
 ```
+
+#### 新規登録ボタンの表示条件
+
+| 条件 | 表示 |
+|-----|------|
+| status = notFound かつ registrationUrl あり | [新規登録] ボタン表示 |
+| status = notFound かつ registrationUrl なし | [サイト内検索] のみ表示 |
+| status = unregistered かつ registrationUrl あり | [新規登録] ボタン表示 |
 
 ---
 
