@@ -25,6 +25,8 @@ services:
       dockerfile: Dockerfile
     container_name: nap-manager-app
     restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
