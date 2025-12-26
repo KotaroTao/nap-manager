@@ -76,40 +76,9 @@ const methodLabels: Record<string, string> = {
   other: "その他",
 }
 
-export default function RequestsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const debouncedSearch = useDebounce(searchQuery, 300)
-
-  const { data, isLoading } = useCorrectionRequests({
-    status: statusFilter !== "all" ? statusFilter as CorrectionRequestStatus : undefined,
-    limit: 100,
-  })
-
-  const requests = data?.requests || []
-
-  // クライアントサイドで検索フィルタリング
-  const filteredRequests = useMemo(() => {
-    if (!debouncedSearch) return requests
-    const query = debouncedSearch.toLowerCase()
-    return requests.filter(
-      (r) =>
-        r.clinicSite?.clinic?.name?.toLowerCase().includes(query) ||
-        r.clinicSite?.site?.name?.toLowerCase().includes(query)
-    )
-  }, [requests, debouncedSearch])
-
-  const pendingCount = requests.filter((r) => r.status === "pending").length
-  const requestedCount = requests.filter((r) => r.status === "requested").length
-  const inProgressCount = requests.filter((r) => r.status === "inProgress").length
-  const completedCount = requests.filter((r) => r.status === "completed").length
-
-  const needsFollowUp = requests.filter(
-    (r) =>
-      r.status === "requested" && r.daysElapsed && r.daysElapsed >= 7
-  )
-
-  const RequestTable = ({ data }: { data: CorrectionRequestWithDetails[] }) => (
+// RequestTableコンポーネントをページコンポーネントの外に定義
+function RequestTable({ data }: { data: CorrectionRequestWithDetails[] }) {
+  return (
     <Table>
       <TableHeader>
         <TableRow>
@@ -186,6 +155,40 @@ export default function RequestsPage() {
         )}
       </TableBody>
     </Table>
+  )
+}
+
+export default function RequestsPage() {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const debouncedSearch = useDebounce(searchQuery, 300)
+
+  const { data, isLoading } = useCorrectionRequests({
+    status: statusFilter !== "all" ? statusFilter as CorrectionRequestStatus : undefined,
+    limit: 100,
+  })
+
+  const requests = data?.requests || []
+
+  // クライアントサイドで検索フィルタリング
+  const filteredRequests = useMemo(() => {
+    if (!debouncedSearch) return requests
+    const query = debouncedSearch.toLowerCase()
+    return requests.filter(
+      (r) =>
+        r.clinicSite?.clinic?.name?.toLowerCase().includes(query) ||
+        r.clinicSite?.site?.name?.toLowerCase().includes(query)
+    )
+  }, [requests, debouncedSearch])
+
+  const pendingCount = requests.filter((r) => r.status === "pending").length
+  const requestedCount = requests.filter((r) => r.status === "requested").length
+  const inProgressCount = requests.filter((r) => r.status === "inProgress").length
+  const completedCount = requests.filter((r) => r.status === "completed").length
+
+  const needsFollowUp = requests.filter(
+    (r) =>
+      r.status === "requested" && r.daysElapsed && r.daysElapsed >= 7
   )
 
   if (isLoading) {

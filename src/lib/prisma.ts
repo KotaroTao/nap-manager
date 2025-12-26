@@ -21,7 +21,6 @@ try {
 } catch {
   // Prismaクライアントが生成されていない場合はモッククライアントを使用
   console.warn("Prisma Client not generated. Using mock client for development.")
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   PrismaClient = class MockPrismaClient {
     // モッククライアントの実装
     clinic = createMockModel()

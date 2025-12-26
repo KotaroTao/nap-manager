@@ -57,6 +57,8 @@ export default function SettingsPage() {
   })
 
   // データが読み込まれたらstateを更新
+  // Note: これらのuseEffectはAPIから取得したデータでフォームを初期化するための正当なパターンです
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (notificationData) {
       setNotificationSettings({
@@ -87,6 +89,7 @@ export default function SettingsPage() {
       }))
     }
   }, [accountData])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSaveNotifications = () => {
     updateNotifications.mutate(notificationSettings, {

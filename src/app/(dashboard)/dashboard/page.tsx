@@ -1,9 +1,11 @@
 /**
  * ダッシュボードページ
- * 
+ *
  * ログイン後最初に表示される画面です。
  * 全体のサマリーや優先対応事項を表示します。
  */
+
+import Link from "next/link"
 
 export default function DashboardPage() {
   return (
@@ -46,18 +48,18 @@ export default function DashboardPage() {
           クイックアクション
         </h3>
         <div className="flex gap-4">
-          <a
+          <Link
             href="/clinics/new"
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             医院を登録
-          </a>
-          <a
+          </Link>
+          <Link
             href="/workspace"
             className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
           >
             ワークスペースを開く
-          </a>
+          </Link>
         </div>
       </div>
     </div>
