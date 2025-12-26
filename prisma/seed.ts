@@ -7,7 +7,7 @@
 import { hash } from "bcryptjs"
 import { prisma } from "../src/lib/prisma"
 
-// マスタサイトデータ
+// マスタサイトデータ（検索テンプレート付き）
 const masterSites = [
   {
     name: "Google ビジネスプロフィール",
@@ -20,6 +20,7 @@ const masterSites = [
     importance: "high" as const,
     seoImpact: "large" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} {prefecture} site:google.com/maps",
   },
   {
     name: "Yahoo!プレイス",
@@ -32,6 +33,7 @@ const masterSites = [
     importance: "high" as const,
     seoImpact: "large" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} {prefecture} site:loco.yahoo.co.jp",
   },
   {
     name: "EPARK歯科",
@@ -44,6 +46,7 @@ const masterSites = [
     importance: "high" as const,
     seoImpact: "medium" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} site:haisha-yoyaku.jp",
   },
   {
     name: "デンターネット",
@@ -56,6 +59,7 @@ const masterSites = [
     importance: "medium" as const,
     seoImpact: "medium" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} site:denternet.jp",
   },
   {
     name: "歯科タウン",
@@ -68,6 +72,7 @@ const masterSites = [
     importance: "medium" as const,
     seoImpact: "medium" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} site:shikatown.com",
   },
   {
     name: "デンタルブック",
@@ -79,6 +84,7 @@ const masterSites = [
     importance: "low" as const,
     seoImpact: "small" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} site:dentalbook.jp",
   },
   {
     name: "Facebook",
@@ -91,6 +97,7 @@ const masterSites = [
     importance: "medium" as const,
     seoImpact: "medium" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} {prefecture} 歯科 site:facebook.com",
   },
   {
     name: "Instagram",
@@ -103,6 +110,7 @@ const masterSites = [
     importance: "medium" as const,
     seoImpact: "small" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} 歯科 site:instagram.com",
   },
   {
     name: "LINE公式アカウント",
@@ -115,6 +123,7 @@ const masterSites = [
     importance: "medium" as const,
     seoImpact: "small" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} 歯科 LINE公式アカウント",
   },
   {
     name: "Twitter/X",
@@ -127,6 +136,7 @@ const masterSites = [
     importance: "low" as const,
     seoImpact: "small" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} 歯科 site:x.com",
   },
   {
     name: "Indeed",
@@ -139,6 +149,7 @@ const masterSites = [
     importance: "low" as const,
     seoImpact: "small" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} 歯科 site:jp.indeed.com",
   },
   {
     name: "ジョブメドレー",
@@ -150,6 +161,7 @@ const masterSites = [
     importance: "low" as const,
     seoImpact: "small" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} site:job-medley.com",
   },
   {
     name: "病院なび",
@@ -161,6 +173,7 @@ const masterSites = [
     importance: "medium" as const,
     seoImpact: "medium" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} {prefecture} site:byoinnavi.jp",
   },
   {
     name: "caloo",
@@ -172,6 +185,7 @@ const masterSites = [
     importance: "medium" as const,
     seoImpact: "medium" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} {prefecture} site:caloo.jp",
   },
   {
     name: "ドクターズファイル",
@@ -183,6 +197,7 @@ const masterSites = [
     importance: "medium" as const,
     seoImpact: "medium" as const,
     siteType: "master" as const,
+    searchUrlTemplate: "{clinicName} {prefecture} site:doctorsfile.jp",
   },
 ]
 

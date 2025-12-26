@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import type { MatchStatus, VerificationStatus } from "@/types"
+import { searchNapForSite } from "@/lib/services/web-search"
 
 /**
  * 住所を正規化
@@ -221,31 +222,38 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // 検索クエリを生成
-        const searchQuery = `${clinic.name} site:${new URL(site.url).hostname}`
+        // Web検索でNAP情報を取得
+        const searchResult = await searchNapForSite(
+          {
+            name: clinic.name,
+            phone: clinic.phone,
+            prefecture: clinic.prefecture,
+            city: clinic.city,
+            address: clinic.address,
+          },
+          {
+            name: site.name,
+            url: site.url,
+            searchUrlTemplate: site.searchUrlTemplate,
+          }
+        )
 
-        // ここでは実際のWeb検索は行わず、モックデータを使用
-        // Phase 2で実際のWeb検索サービスを統合
-        const mockDetectedData = {
-          foundUrl: clinicSite.pageUrl || null,
-          detectedName: clinicSite.detectedName || null,
-          detectedAddress: clinicSite.detectedAddress || null,
-          detectedPhone: clinicSite.detectedPhone || null,
-        }
+        // 検索クエリを生成（ログ用）
+        const searchQuery = `${clinic.name} site:${new URL(site.url).hostname}`
 
         // NAP照合
         const nameResult = determineMatchStatus(
           clinic.name,
-          mockDetectedData.detectedName
+          searchResult.detectedName
         )
         const addressResult = determineMatchStatus(
           fullAddress,
-          mockDetectedData.detectedAddress,
+          searchResult.detectedAddress,
           normalizeAddress
         )
         const phoneResult = determineMatchStatus(
           clinic.phone,
-          mockDetectedData.detectedPhone,
+          searchResult.detectedPhone,
           normalizePhone
         )
 
@@ -255,27 +263,29 @@ export async function POST(request: NextRequest) {
           phoneResult.status
         )
 
-        // 平均信頼度を計算
-        const confidence =
+        // 信頼度を計算（検索結果の信頼度と照合結果の平均）
+        const matchConfidence =
           (nameResult.similarity +
             addressResult.similarity +
             phoneResult.similarity) /
           3
+        const confidence = (searchResult.confidence + matchConfidence) / 2
 
         // 検証ログを作成
         await prisma.verificationLog.create({
           data: {
             clinicSiteId: clinicSite.id,
             searchQuery,
-            foundUrl: mockDetectedData.foundUrl,
-            detectedName: mockDetectedData.detectedName,
-            detectedAddress: mockDetectedData.detectedAddress,
-            detectedPhone: mockDetectedData.detectedPhone,
+            foundUrl: searchResult.foundUrl,
+            detectedName: searchResult.detectedName,
+            detectedAddress: searchResult.detectedAddress,
+            detectedPhone: searchResult.detectedPhone,
             nameMatch: nameResult.status,
             addressMatch: addressResult.status,
             phoneMatch: phoneResult.status,
             overallStatus,
             confidence,
+            rawResponse: JSON.stringify(searchResult.rawResults.slice(0, 3)),
           },
         })
 
@@ -296,10 +306,10 @@ export async function POST(request: NextRequest) {
                     : overallStatus === "notFound"
                       ? "unregistered"
                       : "unchecked",
-            detectedName: mockDetectedData.detectedName,
-            detectedAddress: mockDetectedData.detectedAddress,
-            detectedPhone: mockDetectedData.detectedPhone,
-            pageUrl: mockDetectedData.foundUrl || clinicSite.pageUrl,
+            detectedName: searchResult.detectedName,
+            detectedAddress: searchResult.detectedAddress,
+            detectedPhone: searchResult.detectedPhone,
+            pageUrl: searchResult.foundUrl || clinicSite.pageUrl,
             lastCheckedAt: new Date(),
           },
         })
