@@ -12,6 +12,7 @@ import {
   Database,
   Settings,
   LogOut,
+  Search,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 
@@ -35,6 +36,11 @@ const navigation = [
     name: "サイト管理",
     href: "/sites",
     icon: Globe,
+  },
+  {
+    name: "NAP検証",
+    href: "/verification",
+    icon: Search,
   },
   {
     name: "修正依頼",

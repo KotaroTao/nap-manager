@@ -97,6 +97,11 @@ model Site {
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
+  // NAP検証用フィールド
+  searchUrlTemplate  String? @map("search_url_template")  // 検索URLテンプレート
+  clinicPagePattern  String? @map("clinic_page_pattern")  // 医院ページURLパターン（正規表現）
+  napSelectors       Json?   @map("nap_selectors")        // NAP情報抽出用CSSセレクタ
+
   // リレーション
   clinicSites ClinicSite[]
 
@@ -122,10 +127,15 @@ model ClinicSite {
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
+  // NAP検証用フィールド
+  lastVerifiedAt    DateTime? @map("last_verified_at")    // 最終検証日時
+  verificationCount Int       @default(0) @map("verification_count") // 検証実行回数
+
   // リレーション
   clinic             Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   site               Site                @relation(fields: [siteId], references: [id], onDelete: Cascade)
   correctionRequests CorrectionRequest[]
+  verificationLogs   VerificationLog[]
 
   @@unique([clinicId, siteId])
   @@map("clinic_sites")
@@ -302,4 +312,67 @@ enum RequestMethod {
   email // メール
   phone // 電話
   other // その他
+}
+
+// ==========================================
+// NAP検証用Enum
+// ==========================================
+
+// NAP項目の一致状態
+enum MatchStatus {
+  match        // 完全一致
+  partialMatch // 部分一致
+  mismatch     // 不一致
+  notFound     // 情報未検出
+  error        // 検索エラー
+}
+
+// 検証ステータス
+enum VerificationStatus {
+  verified    // 検証済み（一致）
+  mismatch    // 不一致あり
+  needsReview // 要確認（部分一致含む）
+  notFound    // サイト上で未発見
+  error       // エラー発生
+  pending     // 検証待ち
+}
+
+// ==========================================
+// 検証ログテーブル
+// ==========================================
+model VerificationLog {
+  id           String     @id @default(uuid())
+  clinicSiteId String     @map("clinic_site_id")
+
+  // 検索結果
+  searchQuery String  @map("search_query") // 実行した検索クエリ
+  foundUrl    String? @map("found_url")    // 発見された医院ページURL
+
+  // 検出されたNAP情報
+  detectedName    String? @map("detected_name")    // 検出された医院名
+  detectedAddress String? @map("detected_address") // 検出された住所
+  detectedPhone   String? @map("detected_phone")   // 検出された電話番号
+
+  // 照合結果
+  nameMatch    MatchStatus        @map("name_match")    // 医院名の一致状態
+  addressMatch MatchStatus        @map("address_match") // 住所の一致状態
+  phoneMatch   MatchStatus        @map("phone_match")   // 電話番号の一致状態
+  overallStatus VerificationStatus @map("overall_status") // 総合ステータス
+
+  // メタ情報
+  confidence   Float   @default(0) // 検索結果の信頼度 (0.0-1.0)
+  rawResponse  String? @map("raw_response")  // 検索レスポンスの生データ（デバッグ用）
+  errorMessage String? @map("error_message") // エラーメッセージ
+
+  verifiedAt DateTime @default(now()) @map("verified_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // リレーション
+  clinicSite ClinicSite @relation(fields: [clinicSiteId], references: [id], onDelete: Cascade)
+
+  @@index([clinicSiteId])
+  @@index([verifiedAt])
+  @@index([overallStatus])
+  @@map("verification_logs")
 }

@@ -19,6 +19,10 @@ export type Priority = "urgent" | "high" | "medium" | "low"
 export type CorrectionRequestStatus = "pending" | "requested" | "inProgress" | "completed" | "impossible" | "onHold"
 export type RequestMethod = "form" | "email" | "phone" | "other"
 
+// NAP検証用Enum
+export type MatchStatus = "match" | "partialMatch" | "mismatch" | "notFound" | "error"
+export type VerificationStatus = "verified" | "mismatch" | "needsReview" | "notFound" | "error" | "pending"
+
 // ==========================================
 // 表示用ラベル
 // ==========================================
@@ -96,6 +100,41 @@ export const CORRECTION_REQUEST_STATUS_LABELS: Record<CorrectionRequestStatus, s
   onHold: "保留",
 }
 
+// NAP検証用ラベル
+export const MATCH_STATUS_LABELS: Record<MatchStatus, string> = {
+  match: "一致",
+  partialMatch: "部分一致",
+  mismatch: "不一致",
+  notFound: "未検出",
+  error: "エラー",
+}
+
+export const MATCH_STATUS_COLORS: Record<MatchStatus, string> = {
+  match: "bg-green-100 text-green-800",
+  partialMatch: "bg-yellow-100 text-yellow-800",
+  mismatch: "bg-red-100 text-red-800",
+  notFound: "bg-gray-100 text-gray-800",
+  error: "bg-red-200 text-red-900",
+}
+
+export const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
+  verified: "検証済み",
+  mismatch: "不一致",
+  needsReview: "要確認",
+  notFound: "未発見",
+  error: "エラー",
+  pending: "未検証",
+}
+
+export const VERIFICATION_STATUS_COLORS: Record<VerificationStatus, string> = {
+  verified: "bg-green-100 text-green-800",
+  mismatch: "bg-red-100 text-red-800",
+  needsReview: "bg-yellow-100 text-yellow-800",
+  notFound: "bg-blue-100 text-blue-800",
+  error: "bg-red-200 text-red-900",
+  pending: "bg-gray-100 text-gray-800",
+}
+
 // ==========================================
 // エンティティ型
 // ==========================================
@@ -164,8 +203,33 @@ export interface ClinicSite {
   notes?: string | null
   createdAt: Date
   updatedAt: Date
+  // NAP検証用
+  lastVerifiedAt?: Date | null
+  verificationCount: number
   clinic?: Clinic
   site?: Site
+  verificationLogs?: VerificationLog[]
+}
+
+export interface VerificationLog {
+  id: string
+  clinicSiteId: string
+  searchQuery: string
+  foundUrl?: string | null
+  detectedName?: string | null
+  detectedAddress?: string | null
+  detectedPhone?: string | null
+  nameMatch: MatchStatus
+  addressMatch: MatchStatus
+  phoneMatch: MatchStatus
+  overallStatus: VerificationStatus
+  confidence: number
+  rawResponse?: string | null
+  errorMessage?: string | null
+  verifiedAt: Date
+  createdAt: Date
+  updatedAt: Date
+  clinicSite?: ClinicSite
 }
 
 export interface CorrectionRequest {
