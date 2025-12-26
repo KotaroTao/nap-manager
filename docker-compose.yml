@@ -31,6 +31,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/nap_manager
       AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NODE_ENV: production
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
